@@ -113,6 +113,42 @@ export async function pollStage(jobId: string): Promise<Stage | null> {
   }
 }
 
+export interface SampleInfo {
+  id: string
+  label: string
+  description: string
+  source: 'synthetic' | 'decathlon'
+  has_expert: boolean
+  available: boolean
+}
+
+export async function listSamples(): Promise<SampleInfo[]> {
+  try {
+    const res = await fetch(`${BASE}/api/samples`)
+    if (!res.ok) return []
+    const body = await res.json()
+    return body.samples ?? []
+  } catch {
+    return []
+  }
+}
+
+export async function runSample(sampleId: string, jobId: string): Promise<SegmentResult> {
+  let res: Response
+  try {
+    res = await fetch(`${BASE}/api/samples/${sampleId}/run/${jobId}`, { method: 'POST' })
+  } catch {
+    throw new ApiError([
+      { code: 'unreachable', sequence: null, message: 'Cannot reach the local NeuroScope server at ' + BASE + '. Is it running?' },
+    ])
+  }
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    throw new ApiError(body.errors ?? [{ code: 'error', sequence: null, message: body.detail ?? `Request failed (HTTP ${res.status}).` }])
+  }
+  return body as SegmentResult
+}
+
 export async function submitStudy(jobId: string, files: UploadFiles): Promise<SegmentResult> {
   const form = new FormData()
   form.append('T1', files.T1)

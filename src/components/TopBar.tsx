@@ -3,12 +3,20 @@ import { useLiveStudy } from '../state/liveStudy'
 import { useStudyOptional } from '../state/study'
 import { useStore } from '../state/store'
 
-const NAV = ['Home', 'Datasets', 'Selection', 'Help']
+const NAV = ['Home', 'Datasets', 'Help'] as const
 
 export default function TopBar() {
   const bundle = useStudyOptional()
   const setUploadOpen = useStore((s) => s.setUploadOpen)
+  const setDatasetsOpen = useStore((s) => s.setDatasetsOpen)
+  const setHelpOpen = useStore((s) => s.setHelpOpen)
   const reset = useLiveStudy((s) => s.reset)
+
+  const onNav = (n: (typeof NAV)[number]) => {
+    if (n === 'Home') reset()
+    if (n === 'Datasets') setDatasetsOpen(true)
+    if (n === 'Help') setHelpOpen(true)
+  }
 
   return (
     <header className="flex shrink-0 items-center gap-6 border-b border-edge bg-panel px-4 py-2">
@@ -31,6 +39,7 @@ export default function TopBar() {
         {NAV.map((n, i) => (
           <button
             key={n}
+            onClick={() => onNav(n)}
             className={`rounded px-2.5 py-1 text-[11.5px] transition ${
               i === 0 ? 'bg-white/5 text-slate-200' : 'text-slate-500 hover:text-slate-300'
             }`}

@@ -189,3 +189,106 @@ Both of those produce the feeling of "the tool told me what to do," the
 thing I think the original ask was really reaching for, while staying
 entirely on the Layer 3 (verification) side of the line the PS draws, never
 the Layer 1/2 (clinical interpretation) side.
+
+## Ideation round 2 — interactivity, and the resident's actual daily workflow
+
+Everything above was scoped against the PS's own text. This round asks a
+different question: if a radiology resident, a teaching-hospital volunteer,
+or a research-lab coordinator had to use this tool *every single day*, what
+would make it worth opening versus just scrolling slices in the existing
+PACS viewer? The honest answer is that today's feature set mostly *restates*
+the PS — upload, segment, view, measure. What's below is what turns it into
+something that teaches and triages, not just displays, while staying
+strictly on the Layer 3 (trust) side of the line already drawn above.
+
+Status note: the two "Datasets" and "Help" items in category A were, until
+this round, dead nav-bar buttons with no handler — found and fixed alongside
+this ideation pass, not just proposed. See `src/components/DatasetsPanel.tsx`,
+`src/components/HelpPanel.tsx`, and the new `/api/samples` +
+`/api/samples/{id}/run/{job}` server endpoints.
+
+### A. Fixing what looked done but wasn't
+
+| Gap found | Why it matters daily | Fix |
+|---|---|---|
+| "Datasets" / "Selection" / "Help" nav buttons had no `onClick` at all | A volunteer clicking the obvious nav item and having nothing happen is the fastest way to lose trust in the *whole* tool, not just that button | **Done.** Datasets panel lists curated cases and runs them server-side with one click, through the exact same pipeline as an upload; Help panel explains the workspace, the trust-layer vocabulary, and explicitly answers "where's the accuracy number" |
+| "Measure" and "Window / Contrast" toolbar buttons (`LinkedMprGrid.tsx`) are wired to `onClick={() => {}}` | Measuring distance and adjusting contrast are the two things every radiology workstation lets you do on slice 1 of any session — a resident's muscle memory expects them | Not yet built this round — flagged here so it isn't silently assumed done. Both are pure frontend geometry/canvas work (`lib/volume.ts` already has voxel↔world math), no backend change, no model change — good next session's first task |
+
+### B. Session memory — "what did I look at today"
+
+A resident or volunteer realistically reviews several cases in one sitting,
+not one. Nothing today lets them come back to case 3 after looking at case
+7 without re-running it.
+
+- **Session case log** — every run (sample or uploaded) gets a lightweight
+  local record (timestamp, case label, volumes, Dice if available, sha256) —
+  `localStorage`, no backend/database needed since job artefacts already
+  expire server-side in 23h anyway. A visible "Today's cases" list lets you
+  jump back to any of them instantly if the job is still live, or at least
+  see the numbers after it's expired.
+- **Two-case compare** — pick any two entries from that log and see their
+  metrics bars stacked, with the volume/Dice *delta* highlighted. This is a
+  cheap, immediately-useful precursor to the roadmap's full longitudinal
+  comparison (same-patient-over-time) — it works for *any* two cases today,
+  which is what a volunteer comparing "this teaching case vs. the one we did
+  last week" actually needs first.
+- **Review-priority badge** — compare this case's mean flip-TTA σ against the
+  session log's own distribution so far; flag outliers ("higher uncertainty
+  than the other cases you've run today — review this one first"). This is
+  the PS-safe reframing already drafted above ("a statement about the
+  model's own output," never about the patient), now made concrete and
+  genuinely triage-useful for someone working through a stack of scans.
+
+### C. Teaching and explainability — making the tool *teach*, not just show
+
+- **Modality-ablation toggle, live** — a per-sequence switch in the upload/
+  sample panel that re-runs inference with one channel zeroed, then shows the
+  voxels that *disappeared* highlighted in a third colour. Already named in
+  the PS's own extra-credit list (`docs/PRODUCT_GAPS_AND_IDEATION.md`'s
+  "growing edge"), but reframed here as the actual teaching payoff: a
+  resident sees directly that FLAIR is carrying most of the oedema call on
+  *this* case, which is the real skill the PS's own opening story says
+  residents are missing — not an offline research plot, an interactive one.
+- **Explain-this-number tooltips everywhere a figure appears** — Dice,
+  sensitivity, σ, and the volume formula already have one good tooltip
+  example (`BottomMetricsBar.tsx`'s uncertainty caveat); extend the same
+  pattern to every metric so hovering teaches instead of the Help panel
+  being the only place that explains anything.
+- **Guided first-run tour** — a 5-step spotlight walkthrough (3D twin →
+  shared crosshair → confidence heat-map → region isolation → upload/
+  Datasets), built on the same panel primitives as Help, shown once per
+  browser via `localStorage`. Onboarding friction is the actual adoption
+  blocker in a busy teaching session, not missing features.
+- **Interactive "case builder"** — expose `make_demo_gallery.py`'s lesion
+  parameters (size, position, single vs. multifocal) as sliders in the UI,
+  calling a new `/api/samples/build` endpoint that generates and
+  immediately segments a fresh synthetic case. Lets an instructor construct
+  "what if the tumour were bigger / on the other side / split in two" live,
+  in front of a room — directly serves the teaching-hospital use case named
+  in the README's Business Impact table, with zero new model work.
+
+### D. The gap that actually blocks real-world daily use
+
+- **DICOM ingestion is the highest-leverage item on this entire list.** Every
+  idea above assumes a resident already has four NIfTI files. In practice
+  their actual daily artefact is a DICOM series out of the hospital's PACS.
+  Until there's a conversion step in front of upload (`dicom2nifti` or
+  equivalent, already named in the original roadmap's "growing edge"), the
+  tool cannot ingest what a resident's worklist actually contains — this
+  matters more than most Layer-3 additions above, because without it the
+  *daily* use case this whole project is framed around never actually
+  happens outside a demo.
+- **Atlas-relative localisation**, re-prioritized up from the original list:
+  it directly extends the PS's own opening question ("which side is it on")
+  to "which lobe," using a small bundled coarse atlas and an affine-only
+  (not deformable) alignment — honestly disclosed as approximate, never
+  framed as a registration-grade result.
+
+### What stays explicitly out, restated
+
+Nothing above crosses into diagnosis, grading, or treatment suggestion. The
+case builder generates *synthetic* teaching cases, never a claim about a
+real patient; the review-priority badge is a statement about this session's
+own uncertainty distribution, never about the patient's prognosis. The line
+drawn earlier in this document is unchanged — this round only asks how to
+make the Layer-3 side of it more useful day to day, not whether to cross it.

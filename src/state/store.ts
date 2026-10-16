@@ -53,6 +53,12 @@ interface State {
 
   uploadOpen: boolean
   setUploadOpen: (open: boolean) => void
+
+  datasetsOpen: boolean
+  setDatasetsOpen: (open: boolean) => void
+
+  helpOpen: boolean
+  setHelpOpen: (open: boolean) => void
 }
 
 export const useStore = create<State>((set) => ({
@@ -100,4 +106,10 @@ export const useStore = create<State>((set) => ({
 
   uploadOpen: false,
   setUploadOpen: (uploadOpen) => set({ uploadOpen }),
+
+  datasetsOpen: false,
+  setDatasetsOpen: (datasetsOpen) => set({ datasetsOpen }),
+
+  helpOpen: false,
+  setHelpOpen: (helpOpen) => set({ helpOpen }),
 }))

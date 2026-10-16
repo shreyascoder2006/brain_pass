@@ -1,5 +1,7 @@
 import BottomMetricsBar from './components/BottomMetricsBar'
+import DatasetsPanel from './components/DatasetsPanel'
 import DisclaimerBanner from './components/DisclaimerBanner'
+import HelpPanel from './components/HelpPanel'
 import LinkedMprGrid from './components/LinkedMprGrid'
 import ThreeBrainTwin from './components/ThreeBrainTwin'
 import TopBar from './components/TopBar'
@@ -31,6 +33,8 @@ export default function App() {
       <TopBar />
       <DisclaimerBanner />
       <UploadPanel />
+      <DatasetsPanel />
+      <HelpPanel />
       <StudyProvider fallback={(stage) => <Loading stage={stage} />}>
         <main className="grid min-h-0 flex-1 grid-cols-2 gap-2 p-2 pt-2">
           <ThreeBrainTwin />

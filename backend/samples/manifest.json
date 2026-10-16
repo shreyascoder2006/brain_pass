@@ -1,0 +1,23 @@
+[
+  {
+    "id": "demo_unifocal_right",
+    "label": "Unifocal \u2014 right frontal",
+    "description": "A single, well-circumscribed lesion on the right (+x). The baseline case: one connected mass, moderate WT:TC ratio.",
+    "source": "synthetic",
+    "has_expert": true
+  },
+  {
+    "id": "demo_multifocal_left",
+    "label": "Multifocal \u2014 left hemisphere",
+    "description": "Two separate lesions on the left (-x), each independently nested WT/TC/ET. Exercises the connectivity analysis's real differentiator: \"is it one mass or two?\" answered as 2, not 1.",
+    "source": "synthetic",
+    "has_expert": true
+  },
+  {
+    "id": "demo_large_diffuse",
+    "label": "Large diffuse \u2014 extensive oedema",
+    "description": "A large whole-tumour extent with a small solid core \u2014 a high WT:TC ratio, unlike the compact baseline case. Produces a larger, more irregular uncertainty footprint at the (now much bigger) boundary.",
+    "source": "synthetic",
+    "has_expert": true
+  }
+]

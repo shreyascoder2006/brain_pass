@@ -297,6 +297,29 @@ def _valid_job_id(job: str) -> bool:
     return len(job) == 32 and all(c in "0123456789abcdef" for c in job)
 
 
+async def _run_pipeline(job: str, paths: dict[str, Path], expert_path: Path | None, out: Path) -> dict:
+    """Run process() in a threadpool and log/track its outcome; re-raises
+    InputRejected / any other exception unchanged for the caller to shape
+    into an HTTP response and clean up `out`. Does NOT touch the busy lock
+    or _current_job — the caller acquires/releases those, since upload and
+    pre-staged-sample runs prepare `paths` differently but both want
+    identical behaviour once files exist on disk."""
+    try:
+        metadata = await run_in_threadpool(process, job, paths, expert_path, out)
+        log.info("job %s: completed in %.1fs", job, metadata["runtime_seconds"])
+        return {"job_id": job, "status": "completed", "metadata": metadata}
+    except InputRejected as exc:
+        with _progress_lock:
+            PROGRESS.pop(job, None)
+        log.info("job %s: rejected — %s", job, "; ".join(e["message"] for e in exc.errors))
+        raise
+    except Exception:
+        with _progress_lock:
+            PROGRESS.pop(job, None)
+        log.exception("job %s: processing failed", job)
+        raise
+
+
 @app.post("/api/segment/{job}")
 async def segment(
     job: str,
@@ -354,20 +377,12 @@ async def segment(
             else:
                 paths[name] = path
 
-        metadata = await run_in_threadpool(process, job, paths, expert_path, out)
-        log.info("job %s: completed in %.1fs", job, metadata["runtime_seconds"])
-        return {"job_id": job, "status": "completed", "metadata": metadata}
+        return await _run_pipeline(job, paths, expert_path, out)
     except InputRejected as exc:
         shutil.rmtree(out, ignore_errors=True)
-        with _progress_lock:
-            PROGRESS.pop(job, None)
-        log.info("job %s: rejected — %s", job, "; ".join(e["message"] for e in exc.errors))
         return JSONResponse({"status": "rejected", "errors": exc.errors}, status_code=422)
     except Exception as exc:  # pragma: no cover - last-resort guard, never return a partial result
         shutil.rmtree(out, ignore_errors=True)
-        with _progress_lock:
-            PROGRESS.pop(job, None)
-        log.exception("job %s: processing failed", job)
         raise HTTPException(500, f"Processing failed; no result is available ({exc.__class__.__name__}).") from exc
     finally:
         _current_job = None
@@ -375,6 +390,95 @@ async def segment(
         for upload in [*uploads.values(), expert]:
             if upload:
                 await upload.close()
+
+
+# Curated cases the "Datasets" panel offers for one-click, no-upload demoing —
+# each a real run through the same pipeline (same validation, same model, same
+# uncertainty/connectivity analysis), not a canned result. Populated by
+# make_demo_gallery.py (synthetic, distinct lesion geometry) and optionally by
+# fetch_decathlon_sample.py + convert_decathlon.py (real cases, small-N,
+# honestly labelled as such in the manifest — never presented as a held-out
+# accuracy benchmark).
+SAMPLES_DIR = ROOT / "samples"
+
+
+def _samples_manifest() -> list[dict]:
+    manifest_path = SAMPLES_DIR / "manifest.json"
+    if not manifest_path.exists():
+        return []
+    try:
+        entries = json.loads(manifest_path.read_text())
+    except json.JSONDecodeError:
+        return []
+    out = []
+    for e in entries:
+        case_dir = SAMPLES_DIR / e["id"]
+        available = all((case_dir / f"{s}.nii.gz").exists() for s in SEQUENCES)
+        out.append({**e, "available": available})
+    return out
+
+
+@app.get("/api/samples")
+def list_samples():
+    return {"samples": _samples_manifest()}
+
+
+@app.post("/api/samples/{sample_id}/run/{job}")
+async def run_sample(sample_id: str, job: str):
+    """Run a pre-staged sample case exactly like an uploaded one — the only
+    difference is where the four sequence files come from."""
+    global _current_job
+    if not _valid_job_id(job):
+        raise HTTPException(400, "Invalid job id.")
+
+    case_dir = SAMPLES_DIR / sample_id
+    if not case_dir.is_dir():
+        raise HTTPException(404, f"Unknown sample '{sample_id}'.")
+    missing = [s for s in SEQUENCES if not (case_dir / f"{s}.nii.gz").exists()]
+    if missing:
+        raise HTTPException(409, f"Sample '{sample_id}' is missing {', '.join(missing)} on the server.")
+
+    if not busy.acquire(blocking=False):
+        with _progress_lock:
+            current = PROGRESS.get(_current_job) if _current_job else None
+        detail = f" Current job {_current_job} is at: {current['message']}" if current else ""
+        log.info("job %s rejected: busy with %s", job, _current_job)
+        raise HTTPException(
+            409,
+            f"One study is already processing.{detail} Wait for it to finish, "
+            f"or poll /api/jobs/{_current_job}/status for its progress.",
+        )
+
+    _current_job = job
+    out = JOBS / job
+    if out.exists():
+        busy.release()
+        _current_job = None
+        raise HTTPException(409, "Job id already in use.")
+    out.mkdir()
+    log.info("job %s: running pre-staged sample '%s'", job, sample_id)
+    report_stage(job, "received")
+
+    paths = {s: out / f"{s}.nii.gz" for s in SEQUENCES}
+    for s, dest in paths.items():
+        shutil.copyfile(case_dir / f"{s}.nii.gz", dest)
+    expert_src = case_dir / "label.nii.gz"
+    expert_path = None
+    if expert_src.exists():
+        expert_path = out / "expert.nii.gz"
+        shutil.copyfile(expert_src, expert_path)
+
+    try:
+        return await _run_pipeline(job, paths, expert_path, out)
+    except InputRejected as exc:
+        shutil.rmtree(out, ignore_errors=True)
+        return JSONResponse({"status": "rejected", "errors": exc.errors}, status_code=422)
+    except Exception as exc:  # pragma: no cover - last-resort guard, never return a partial result
+        shutil.rmtree(out, ignore_errors=True)
+        raise HTTPException(500, f"Processing failed; no result is available ({exc.__class__.__name__}).") from exc
+    finally:
+        _current_job = None
+        busy.release()
 
 
 @app.get("/api/jobs/{job}/status")
