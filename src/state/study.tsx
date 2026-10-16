@@ -59,7 +59,15 @@ export function StudyProvider({ children, fallback }: { children: ReactNode; fal
   const [bundle, setBundle] = useState<StudyBundle | null>(null)
   const [stage, setStage] = useState('Generating study volumes')
   const generation = useLiveStudy((s) => s.generation)
-  const live = useLiveStudy((s) => (s.status === 'done' ? { jobId: s.jobId!, metadata: s.metadata! } : null))
+  // Select primitives/stable refs individually — a selector that returns a freshly
+  // constructed object on every call breaks Zustand's snapshot equality check and
+  // causes an infinite re-render loop the moment `status` actually becomes 'done'.
+  const liveStatus = useLiveStudy((s) => s.status)
+  const liveJobId = useLiveStudy((s) => s.jobId)
+  const liveMetadataValue = useLiveStudy((s) => s.metadata)
+  const live = liveStatus === 'done' && liveJobId && liveMetadataValue
+    ? { jobId: liveJobId, metadata: liveMetadataValue }
+    : null
 
   useEffect(() => {
     let cancelled = false

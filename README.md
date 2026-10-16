@@ -37,6 +37,7 @@ This isn't a mockup. Every claim below is a measured result, reproducible from t
 |---|---|
 | **17 / 17** | judges' own pipeline tests pass — failure pack, volume calibration, reproducibility, anisotropic, both orientation tests ([details](docs/VERIFICATION.md)) |
 | **Real model** | MONAI `brats_mri_segmentation` (SegResNet, Apache-2.0, BraTS-2018), checkpoint sha256-verified before every load |
+| **Dice 0.90 / 0.90 / 0.85** | WT / TC / ET, measured on **real** Medical Segmentation Decathlon tumour data — not synthetic ([details](docs/VERIFICATION.md#real-data-accuracy-medical-segmentation-decathlon)) |
 | **~60–75s / case** | measured end-to-end, CPU-only, against a 120s budget on a T4 GPU |
 | **Live uncertainty** | flip-based TTA ensemble — a *measured* confidence signal, not a guess, visible as a heat-map overlay |
 | **0 cloud calls** | fully local inference; uploads deleted immediately after processing, derived artefacts expire in 23h |
@@ -47,7 +48,11 @@ This isn't a mockup. Every claim below is a measured result, reproducible from t
 - **Live 3D + linked MPR workspace** — a translucent brain shell with nested WT/TC/ET isosurfaces (custom Surface Nets extraction), linked axial/coronal/sagittal views sharing one crosshair, voxel *and* world-mm coordinates.
 - **Flip-TTA model confidence** — the platform's actual differentiator: a measured disagreement signal shown as a toggleable heat-map, with an honest caveat attached everywhere it appears.
 - **Connected-component summary** — answers "is it one mass or two?" automatically, for every region.
-- **Transparent volumetrics** — every volume shows its formula: voxel count × spacing, on the original acquisition grid.
+- **Transparent volumetrics** — every volume shows its formula: voxel count × spacing, on the original acquisition grid, plus max diameter and boundary surface area, each naming its own definition on hover.
+- **Agreement overlay** — green where model and expert agree, amber where only the model flags tumour, red where only the expert does; "largest miss → go" flies the crosshair straight to the biggest thing the model left out.
+- **Measure & window/contrast** — click two points for a real distance in mm from the scan's own spacing; drag to re-window the display, same way a clinical viewer does.
+- **Quality Check Centre** — an itemised, real-validator-driven report (not a single PASS badge) of every check a study was put through.
+- **A curated dataset gallery** — three synthetic reference cases plus real, de-identified Decathlon cases, runnable from the UI in one click.
 - **Provenance & reporting** — checkpoint hash, input hashes, code commit, every validation warning, bundled into a printable report.
 
 See [`docs/FEATURES.md`](docs/FEATURES.md) for the full breakdown by category.
@@ -94,9 +99,18 @@ uvicorn server.main:app --host 127.0.0.1 --port 8008
 # Judges' scorer (no server needed)
 python backend/make_testcase.py --out ./testdata
 python backend/run_judge_tests.py --data ./testdata --model bundle
+
+# Real tumour data, without a 7.6 GB download — see "Real data" below
+python backend/tools/fetch_decathlon_sample.py --count 4 --out backend/data/raw_sample --index-cache backend/data/raw_sample/index_cache.json
+python backend/tools/convert_decathlon.py --root backend/data/raw_sample/Task01_BrainTumour --out backend/data
+python backend/evaluate.py --root backend/data/decathlon --limit 4 --out backend/data/real_sample_eval.json --model bundle
 ```
 
-Open `http://localhost:5173`, click **Upload case**, drop in four NIfTI sequences (`.nii`/`.nii.gz`), and watch it segment live. No upload yet? The workspace renders a fully interactive synthetic demo case on load.
+Open `http://localhost:5173`, click **Upload case**, drop in four NIfTI sequences (`.nii`/`.nii.gz`), and watch it segment live. No upload yet? The workspace renders a fully interactive synthetic demo case on load, or pick a real case from the **Datasets** panel.
+
+## Real data, the clever part
+
+Medical Segmentation Decathlon's Task01_BrainTumour archive is one 7.6 GB tar. `tools/fetch_decathlon_sample.py` doesn't download it — it walks the table of contents using one small HTTP Range request per entry (tar's fixed 512-byte member headers state each member's exact size), then fetches only the selected cases' actual image+label bytes in full. Result: **~38 MB instead of 7.6 GB** for 4 real, full-resolution cases. `tools/convert_decathlon.py` then splits each 4D volume into the four per-modality files this pipeline expects and remaps Decathlon's label codes to BraTS 1/2/4 — the two code systems differ and that mapping is exactly the kind of silent bug this project doesn't let through untested (`backend/tests/`).
 
 ## Documentation
 
@@ -107,7 +121,9 @@ Open `http://localhost:5173`, click **Upload case**, drop in four NIfTI sequence
 | [`docs/FEATURES.md`](docs/FEATURES.md) | Complete feature breakdown — ingestion/validation, visualisation, the trust layer, reporting |
 | [`docs/VERIFICATION.md`](docs/VERIFICATION.md) | Measured results against every judges' test, with the exact commands that produced them |
 | [`docs/MODEL_CARD.md`](docs/MODEL_CARD.md) | Model name, version, licence, training data, preprocessing, known limitations |
-| [`docs/BACKEND_ROADMAP.md`](docs/BACKEND_ROADMAP.md) | Phased backend plan — what's done, what's next, and why, grounded in the judge test matrix |
+| [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md) | **The active backend work plan** — real data acquisition, multi-model benchmarking, hardening, phased and sequenced |
+| [`docs/INTERACTIVE_PLATFORM_PLAN.md`](docs/INTERACTIVE_PLATFORM_PLAN.md) | **The active product-surface work plan** — what's landed (measure tool, window/contrast, agreement overlay, Quality Centre, dataset gallery) and what's next, in order |
+| [`docs/BACKEND_ROADMAP.md`](docs/BACKEND_ROADMAP.md) | Earlier phased backend plan — many items already closed; check status markers |
 | [`docs/PRODUCT_GAPS_AND_IDEATION.md`](docs/PRODUCT_GAPS_AND_IDEATION.md) | Gap analysis against real radiology workflows, and feature ideation with an explicit compliance note on what's out of scope |
 | [`reports/NeuroScope 3D landscape research.md`](<reports/NeuroScope 3D landscape research.md>) | The original competitive/literature landscape research this whole approach is grounded in |
 
@@ -115,18 +131,22 @@ Open `http://localhost:5173`, click **Upload case**, drop in four NIfTI sequence
 
 ```
 backend/
-  neuroscope/        pure-Python pipeline library (validate, infer, regions, provenance, limits)
-  server/             FastAPI app — job lifecycle, live progress, the HTTP API
+  neuroscope/        pure-Python pipeline library (validate, infer, regions, provenance, limits, config)
+  server/             FastAPI app — job lifecycle, live progress, samples, the HTTP API
+  tools/               convert_decathlon.py, fetch_decathlon_sample.py, make_demo_gallery.py
+  tests/               pytest suite (27 tests — validate, regions, model_base)
+  data/                 Decathlon conversion output, split manifest, real eval results (gitignored, regenerable)
+  samples/              curated demo + real cases served by /api/samples
   predict.py          CLI entry point (what the judges' scorer calls)
   evaluate.py         Dice/sensitivity scoring over a BraTS-style folder tree
   make_testcase.py    generates the full synthetic judge test pack
   run_judge_tests.py  runs the judge test pack and reports PASS/FAIL
   setup_model.py      downloads + sha256-verifies the MONAI checkpoint
 src/
-  components/         React UI — 3D viewer, linked MPR grid, upload panel, metrics bar
-  lib/                 meshing (Surface Nets), volume/affine math, API client
+  components/         3D viewer, linked MPR grid, upload panel, metrics bar, Datasets/Help panels, Quality Centre
+  lib/                 meshing (Surface Nets), volume/affine math, API client, keyboard shortcuts, sequence auto-detect
   state/               Zustand stores (crosshair, regions, live-study status)
-docs/                 architecture, problem framing, features, verification, model card, roadmap
+docs/                 architecture, problem framing, features, verification, model card, roadmap, active plans
 ```
 
 ## Disclaimer

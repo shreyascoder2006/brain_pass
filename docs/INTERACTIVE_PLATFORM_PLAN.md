@@ -79,66 +79,77 @@ volumes per modality and remaps Decathlon's label codes to BraTS 1/2/4.
 
 ## 1. Next up, in order
 
-### 1a. Finish the documentation sweep — *start here, it's the cheapest win*
+### 1a. Documentation sweep — **done**
 
-The real numbers above exist in the repo but the docs still say the only
-accuracy figures are synthetic. Until that's fixed the project under-claims
-what it has actually proven.
+`docs/VERIFICATION.md`, `docs/MODEL_CARD.md`, `README.md`, `docs/FEATURES.md`
+and `CLAUDE.md` all updated with the real-data Dice table, the Range-request
+fetch trick, and the six new interactive features. Each real-data mention
+carries both caveats (4 of the required ≥10; pretraining overlap not
+verifiable).
 
-- `docs/VERIFICATION.md` — add a real-data section with the table above and the
-  reproduce command. Keep the existing synthetic calibration results; they test
-  a different thing (pipeline integrity, not accuracy).
-- `docs/MODEL_CARD.md` — replace "no real evaluation exists" with the measured
-  figures plus the two caveats that must travel with them: four cases is a
-  sample, not the ten held-out cases the PS asks for, and overlap with the
-  checkpoint's BraTS-2018 training set cannot be ruled out from its public
-  release.
-- `README.md` — headline the real Dice numbers; add the new interactive
-  features to the feature list; note the Range-request fetch trick, which is
-  genuinely novel and worth showing off.
-- `docs/FEATURES.md` — the six new interactive features.
-- `CLAUDE.md` — update "current state" so the next session starts correctly.
-
-### 1b. Close the one unmet mandatory requirement
+### 1b. Close the one unmet mandatory requirement — **in progress**
 
 The feature-plan audit found 13 of 14 mandatory DI-02 boxes already met. The
 exception: **held-out Dice and sensitivity on at least 10 labelled cases.** We
-have four.
+had four; a `--count 10` fetch + convert + evaluate run was kicked off in the
+background to get the remaining six. It is genuinely slow under real
+conditions — walking the tar's table of contents past the ~500th entry (many
+macOS `._` sidecar files and an `imagesTs` section to skip past) took over
+600 seconds running concurrently with live-case inference below, far past the
+"cache makes the re-walk instant" assumption this section originally stated.
+**Check `backend/data/real_sample_eval.json`'s `cases_scored` field for the
+current count before re-running this** — if it already reads 10, this item is
+closed; update `docs/VERIFICATION.md` and `docs/MODEL_CARD.md`'s "4 of 10"
+caveats to "10 of 10" and remove this paragraph.
 
-Six more cases is one command, because the fetcher is case-selective:
+### 1c / 1d. Wire real cases into the Datasets panel + verify against a live backend — **done, and found a real bug doing it**
 
-```bash
-cd backend
-python tools/fetch_decathlon_sample.py --count 10 --out data/raw_sample \
-  --index-cache data/raw_sample/index_cache.json   # cache makes the re-walk instant
-python tools/convert_decathlon.py --root data/raw_sample/Task01_BrainTumour --out data
-python evaluate.py --root data/decathlon --limit 10 --out data/real_sample_eval.json --model bundle
-```
+Running an actual real-case job through the live server for the first time
+(not TestClient, the literal Datasets-panel click path) surfaced a genuine
+infinite-render-loop bug that every prior check had missed, because every
+prior check used the demo phantom, which never flips `useLiveStudy`'s
+`status` to `'done'`:
 
-Budget ~90–110 s per case of CPU inference, so ~10 minutes of wall clock for
-the new six. The index cache is already committed-adjacent on disk, so the slow
-part (walking 796 tar headers) does not repeat.
+`src/state/study.tsx`'s `StudyProvider` selected `useLiveStudy` with
+`(s) => (s.status === 'done' ? { jobId: s.jobId!, metadata: s.metadata! } : null)`
+— a selector that **constructs a new object on every call**. Zustand's
+`useSyncExternalStore`-based subscription compares snapshots by reference;
+a fresh object every read means "changed" every time, which re-renders the
+component, which calls the selector again, forever. Error signature: `Warning:
+The result of getSnapshot should be cached to avoid an infinite loop` followed
+by `Maximum update depth exceeded`, both pointing at `StudyProvider`. The
+screen goes solid blank — no error boundary, no partial render, just a black
+page, which is its own lesson about why one would be worth adding.
 
-### 1c. Wire the staged real cases into the Datasets panel properly
+**Fixed** by selecting `status`, `jobId` and `metadata` as three separate
+primitive/stable-reference selectors and combining them in a local `const`
+outside the subscription, so the subscription itself only ever sees genuinely
+unchanged values between real updates. One line of root cause, now with a
+comment at the call site explaining why the obvious-looking inline-object
+version is wrong.
 
-Four real cases are staged in `backend/samples/` and listed in its manifest,
-but they have only been run through the pipeline once, by hand, via TestClient.
-Run each one through the live server and confirm the Datasets panel renders
-them, including the new geometry and agreement fields.
+Verified after the fix, live, with a real Decathlon case run from the actual
+Datasets panel button (not simulated): real anatomy rendered in 3D and all
+three MPR views, WT/TC/ET volumes matched the committed `real_sample_eval.json`
+figures for that case, connectivity read "single connected mass" / "2
+disconnected regions" correctly per region, uncertainty σ displayed, the
+agreement overlay showed real green/amber/red voxels, "largest miss → go"
+was present and worked, and the Quality Centre showed "7 checks run" against
+that study's real validator output. Crosshair click-to-move was re-tested
+post-fix and works on a live case. Console is clean on a fresh reload.
 
-### 1d. Verify the new UI against a live backend
+**Takeaway for whoever resumes next**: a feature verified only against the
+demo phantom is not verified. The phantom never exercises the `status: 'done'`
+transition, the `geometry`/`agreement` fields, or real-grid dimensions — three
+separate things this one bug alone touched. Re-check anything new against a
+real, live-server-run case before calling it done, the way this round did.
 
-Everything in section 0 was verified against the procedural demo phantom, which
-has no `geometry` or `agreement` metadata. The code paths that read those
-fields are typed and guarded but have not been seen rendering real values.
-Start the backend, run a real sample case, and confirm:
-
-- region cards show max diameter and surface area
-- "largest miss → go" appears and navigates correctly
-- the Quality Centre reflects that study's real warnings
-
-Note: ports 5173 and 8008 were held by an older orphaned session during this
-build; a spare port (5174) was used instead. Check for stale listeners first.
+Note: ports 5173 and 8008 can be held by an older orphaned session between
+build sessions; a stale `uvicorn` process will still answer `/api/health`
+while predating a newly-added endpoint like `/api/samples`. Check
+`netstat -ano | grep -E ":5173|:8008"` and compare the PID's age before
+assuming a "missing" endpoint is a code bug rather than a stale process —
+see `CLAUDE.md`'s "known environment quirks" section.
 
 ---
 

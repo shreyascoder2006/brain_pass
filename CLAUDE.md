@@ -12,24 +12,32 @@ Read this first in any new session. It's the orientation doc, not the detail —
 
 - **Real model is live and verified**: MONAI `brats_mri_segmentation` (SegResNet, BraTS-2018, Apache-2.0), checkpoint sha256-pinned, loaded via `backend/setup_model.py`.
 - **17/17 judges' own pipeline tests pass** with the real model — failure pack, volume calibration, reproducibility, anisotropic, both orientation tests. Reproduce: `cd backend && python run_judge_tests.py --data ./testdata --model bundle`. Full results: [`docs/VERIFICATION.md`](docs/VERIFICATION.md).
+- **Real tumour data has landed.** Medical Segmentation Decathlon Task01_BrainTumour, fetched via HTTP Range requests against the tar's own headers (~38 MB for 4 cases instead of a 7.6 GB download — `backend/tools/fetch_decathlon_sample.py`). Measured real-data Dice: WT 0.9013, TC 0.8989, ET 0.8503, on 4 cases. **This is still 4 of the PS's required ≥10** — expanding to 10 is the top of `docs/IMPLEMENTATION_PLAN.md`'s and `docs/INTERACTIVE_PLATFORM_PLAN.md`'s next-action lists; check there before re-deriving this from scratch.
 - **Flip-TTA uncertainty is live**: 2-pass flip ensemble, real measured per-voxel σ, shown as a toggleable heat-map in the UI with an honest caveat attached everywhere it appears (disagreement signal, not a calibrated probability).
+- **The trust layer is now interactive, not just displayed**: a measure tool, window/contrast dragging, a colour-coded model-vs-expert agreement overlay with "largest miss → go" navigation, exact shape measurements (max diameter via convex hull, surface area), and a Quality Check Centre (itemised real-validator report, not one badge) all landed and are wired to real backend fields (`neuroscope.regions.geometry()` / `agreement()`).
+- **A curated dataset gallery exists** (`/api/samples`, `src/components/DatasetsPanel.tsx`) — 3 synthetic reference cases plus the 4 real Decathlon cases, runnable from the UI.
+- **Backend hardening landed**: a settings object (`neuroscope/config.py`), structured logging, a formal model-adapter `Protocol` (`neuroscope/model_base.py`), and a 27-test pytest suite (`backend/tests/`) — run it with `cd backend && python -m pytest tests/ -q`.
 - **Full-stack wiring is real**: React/Three.js frontend ↔ FastAPI server ↔ `neuroscope` pipeline library. Live upload → staged progress → 3D render, verified end to end, not mocked.
-- **What's NOT yet true, stated plainly so nobody re-discovers this the hard way**: all accuracy numbers so far (Dice ~0.96/0.92/0.95) are from this project's own *synthetic* calibration case, not real BraTS/Decathlon data. No real held-out evaluation exists yet. Only one model architecture has been benchmarked. See [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md) for exactly what closes this and in what order.
+- **What's NOT yet true, stated plainly so nobody re-discovers this the hard way**: real-data Dice above is from 4 cases, not the required ≥10. Only one model architecture has been benchmarked — a check before writing the original implementation plan found that publicly-released BraTS-pretrained checkpoints barely exist outside the SegResNet bundle already in use, so multi-model comparison needs GPU training compute that hasn't been available yet. HD95 is not implemented. See [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md) (data/model work) and [`docs/INTERACTIVE_PLATFORM_PLAN.md`](docs/INTERACTIVE_PLATFORM_PLAN.md) (product surface work, with an explicit "landed and verified" section — **read it before assuming a feature isn't built**) for exactly what closes each gap and in what order.
 
 ## Repo map
 
 ```
 backend/
-  neuroscope/        pure-Python pipeline library — validate, infer (TTA), regions, provenance, limits
-  server/             FastAPI app — job lifecycle, live stage-progress, the HTTP API
+  neuroscope/        pure-Python pipeline library — validate, infer (TTA), regions, provenance, limits, config
+  server/             FastAPI app — job lifecycle, live stage-progress, /api/samples, the HTTP API
+  tools/               convert_decathlon.py, fetch_decathlon_sample.py (Range-request fetcher), make_demo_gallery.py
+  tests/               pytest suite — 27 tests, run with `python -m pytest tests/ -q`
+  data/                Decathlon conversion output + split + real eval results (gitignored, regenerable — see commands below)
+  samples/              curated cases (3 synthetic + 4 real) served by /api/samples
   predict.py          CLI entry point (what a judge's scorer calls)
   evaluate.py         Dice/sensitivity over a BraTS-style folder tree
   make_testcase.py    generates the synthetic judge test pack
   run_judge_tests.py  runs the judge pack, reports PASS/FAIL
   setup_model.py      downloads + sha256-verifies the MONAI checkpoint
 src/
-  components/         3D viewer, linked MPR grid, upload panel, metrics bar
-  lib/                 meshing (Surface Nets), affine math, API client
+  components/         3D viewer, linked MPR grid, upload panel, metrics bar, DatasetsPanel, HelpPanel, QualityCentre
+  lib/                 meshing (Surface Nets), affine math, API client, useShortcuts, sequenceDetect
   state/               Zustand stores
 docs/                 all project documentation — see index below
 reports/              earlier landscape/competitive research (grounds the whole trust-layer thesis)
@@ -45,8 +53,9 @@ reports/              earlier landscape/competitive research (grounds the whole 
 | [`docs/FEATURES.md`](docs/FEATURES.md) | Full feature inventory — check before assuming something doesn't exist |
 | [`docs/VERIFICATION.md`](docs/VERIFICATION.md) | Current measured test results, and the exact commands to reproduce them |
 | [`docs/MODEL_CARD.md`](docs/MODEL_CARD.md) | Model provenance, known limitations |
-| [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md) | **The active work plan** — real data acquisition, multi-model benchmarking, hardening. Read this before starting new backend work. |
-| [`docs/BACKEND_ROADMAP.md`](docs/BACKEND_ROADMAP.md) | Earlier phased hardening plan; some items already closed (checkpoint hashing, resource limits, live progress) — check status markers before re-doing them |
+| [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md) | **The active data/model work plan.** Read before starting new backend or data work. |
+| [`docs/INTERACTIVE_PLATFORM_PLAN.md`](docs/INTERACTIVE_PLATFORM_PLAN.md) | **The active product-surface work plan.** Has an explicit "landed and verified" section — read before assuming a UI feature isn't built, and before starting new frontend work. |
+| [`docs/BACKEND_ROADMAP.md`](docs/BACKEND_ROADMAP.md) | Earlier phased hardening plan; most items already closed (checkpoint hashing, resource limits, live progress, settings object, logging, pytest suite) — check status markers before re-doing them |
 | [`docs/PRODUCT_GAPS_AND_IDEATION.md`](docs/PRODUCT_GAPS_AND_IDEATION.md) | Feature ideation, **and an explicit note on what's out of scope by the PS's own rules — read before adding anything diagnosis-adjacent** |
 | [`reports/NeuroScope 3D landscape research.md`](<reports/NeuroScope 3D landscape research.md>) | The competitive/literature research the trust-layer thesis is grounded in |
 
@@ -70,8 +79,9 @@ python setup_model.py                       # one-time: downloads + verifies the
 uvicorn server.main:app --host 127.0.0.1 --port 8008
 
 # Verify nothing's broken after a change
+python -m pytest tests/ -q                   # fast — unit tests for validate/regions/model_base
 python make_testcase.py --out ./testdata     # only needed once, or after testdata/ is deleted
-python run_judge_tests.py --data ./testdata --model bundle
+python run_judge_tests.py --data ./testdata --model bundle   # slower — full pipeline with the real model
 ```
 
 Note: `backend/models/`, `backend/testdata/`, and `backend/.runtime/` are gitignored by design (weights, generated test data, live job artefacts) — if they're missing, that's expected, not a bug; regenerate with the commands above.
@@ -80,3 +90,4 @@ Note: `backend/models/`, `backend/testdata/`, and `backend/.runtime/` are gitign
 
 - This has been developed in a sandboxed environment where the Bash tool's filesystem view and the native Windows filesystem (what PowerShell, VS Code, and locally-run `npm`/`node` processes see) can diverge for certain directories (notably `node_modules`). If `npm run dev` fails with a missing-binary error right after a Bash-run `npm install`, re-run `npm install` from the actual terminal/IDE you're using, not assume the install itself is broken.
 - The backend server and frontend dev server are two separate processes (`uvicorn` on :8008, Vite on :5173) — both need to be running for live (non-demo) uploads to work. The UI always renders a procedural demo case with zero setup, so "nothing renders" on first load is not a sign the backend is required to be up.
+- **Check for stale listeners before assuming something's broken.** A previous session's `uvicorn`/`vite` process can be left running and still answer health checks while being out of date (missing new endpoints like `/api/samples`). `netstat -ano | grep -E ":5173|:8008"` to check; if a PID is old, kill it (`Stop-Process -Id <pid> -Force` in PowerShell — killing from the Bash tool may not reach a native Windows process, see above) and restart fresh rather than debugging a "missing" endpoint that's actually just not loaded yet.

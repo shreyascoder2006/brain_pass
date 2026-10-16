@@ -57,14 +57,32 @@ Full breakdown of what NeuroScope 3D does today, organised by category. For the 
 
 ### Visible validation status
 - A pass/warning badge in the metrics bar reflects the real validation result for the current study, with specific warning text on hover.
+- **Quality Check Centre** — a floating, itemised report (not a single badge) of every real validator check a study was put through, so a pass is auditable, not just asserted.
 
-## 5. Reporting & provenance
+### Shape measurements
+- Max 3D diameter (exact, via convex hull) and boundary surface area reported under each region's volume, each naming its own definition on hover.
+- Centroid and bounding box also computed (`neuroscope.regions.geometry`), available in the provenance record.
+
+### Agreement overlay and largest-miss navigation
+- When an expert mask exists, a dedicated overlay shows green where model and expert agree, amber where only the model flags tumour, red where only the expert does — true/false-positive/negative made spatially visible, not just a Dice number.
+- **"Largest miss → go"** in the metrics bar flies the crosshair straight to the centre of the biggest thing the model left out and switches to the agreement overlay automatically.
+
+## 5. Interrogation tools
+
+Turns the viewer from something you look at into something you interrogate.
+
+- **Measure** — click two points on any slice view for a real physical distance in mm, computed from that scan's own voxel spacing.
+- **Window / contrast** — drag to re-window the display (up/down adjusts centre, left/right adjusts width), the same interaction a clinical PACS viewer uses. Defaults reproduce the previous fixed display ramp exactly, so opening the tool changes nothing until touched.
+- **Keyboard shortcuts** — `C` crosshair, `M` measure, `W` window, `O` overlay toggle, `E`/`U` expert/uncertainty views, `A` agreement, `B` brain shell, `?` help, `Esc` to exit a tool — suppressed while a text field has focus.
+- **Dataset gallery** — three curated synthetic reference cases (unifocal, multifocal, large-diffuse) plus real, de-identified Decathlon cases, each runnable from the UI in one click via `/api/samples`.
+
+## 6. Reporting & provenance
 
 | Category | Fields |
 |---|---|
 | Model provenance | Model name, bundle version, licence, checkpoint sha256, TTA pass count and method |
 | Input provenance | Per-sequence sha256 of uploaded files, geometry (dims/spacing/affine), code commit hash |
-| Results | Per-region volume with formula, Dice/sensitivity vs. expert mask, connectivity, mean/max uncertainty |
+| Results | Per-region volume with formula, Dice/sensitivity vs. expert mask, connectivity, mean/max uncertainty, max diameter, surface area, TP/FP/FN agreement |
 | Process | Timestamp, total runtime, every validation warning that fired |
 | Compliance | The disclaimer, and explicit, itemised limitations |
 
@@ -72,7 +90,7 @@ Full breakdown of what NeuroScope 3D does today, organised by category. For the 
 - Uploaded source files are deleted immediately once a result exists; derived job artefacts expire after 23 hours.
 - The report generator only ever runs after a study passes validation — there's no code path that produces a report for a failed input.
 
-## 6. Judge-test verification
+## 7. Judge-test verification
 
 Every item below is a documented PS requirement, measured by actually running the judges' own test generator and scorer against this codebase with the real, verified model. Full results and the exact commands: [`docs/VERIFICATION.md`](VERIFICATION.md).
 
@@ -85,8 +103,8 @@ Every item below is a documented PS requirement, measured by actually running th
 | Orientation, same anatomy | **PASS** — 0.0% difference |
 | Orientation, mirrored anatomy | **PASS** |
 
-**17 / 17 automated pipeline tests pass with the real, checkpoint-verified MONAI model.**
+**17 / 17 automated pipeline tests pass with the real, checkpoint-verified MONAI model.** Separately, on real Decathlon data: Dice 0.90 / 0.90 / 0.85 (WT/TC/ET) across 4 cases, expansion to the PS's required 10 in progress — see [`docs/VERIFICATION.md`](VERIFICATION.md#real-data-accuracy-medical-segmentation-decathlon).
 
 ## What's next
 
-See [`docs/BACKEND_ROADMAP.md`](BACKEND_ROADMAP.md) (phased backend plan) and [`docs/PRODUCT_GAPS_AND_IDEATION.md`](PRODUCT_GAPS_AND_IDEATION.md) (feature ideation) for where this grows next: interactive ROI seeding, longitudinal comparison, atlas-relative localisation, modality-ablation explanation, colour-coded agreement maps, HD95, and DICOM ingestion.
+See [`docs/IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) (data + model work) and [`docs/INTERACTIVE_PLATFORM_PLAN.md`](INTERACTIVE_PLATFORM_PLAN.md) (product surface, prioritised) for the live plan. Near-term: finish the real-data evaluation to 10 cases, HD95, a pre-inference preview, an interactive failure simulator, atlas-relative localisation, modality-ablation explanation, and DICOM ingestion.

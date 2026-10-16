@@ -54,6 +54,29 @@ python run_judge_tests.py --data ./testdata --model bundle
 | **Orientation, same anatomy** | Upload a copy stored with its voxels flipped left-right and the affine changed to match | Tumour on the same labelled side in every view; WT volume within 2% | **PASS**, 0.0% difference |
 | **Orientation, mirrored anatomy** | Upload a copy whose voxels are flipped left-right with the affine unchanged | The tumour moves to the other labelled side | **PASS** |
 
+## Real-data accuracy (Medical Segmentation Decathlon)
+
+The figures above are pipeline-integrity checks on a synthetic calibration case. Separately, the platform has been run against **real, de-identified tumour data** — Medical Segmentation Decathlon Task01_BrainTumour (CC-BY-SA 4.0), fetched without downloading the full 7.6 GB archive (see [`docs/IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) Phase 1a for how `tools/fetch_decathlon_sample.py` does this in ~38 MB using HTTP Range requests against the tar's own member headers).
+
+```bash
+cd backend
+python tools/fetch_decathlon_sample.py --count 4 --out data/raw_sample --index-cache data/raw_sample/index_cache.json
+python tools/convert_decathlon.py --root data/raw_sample/Task01_BrainTumour --out data
+python evaluate.py --root data/decathlon --limit 4 --out data/real_sample_eval.json --model bundle
+```
+
+| Region | Mean Dice | Mean sensitivity |
+|---|---|---|
+| WT | **0.9013** | 0.8677 |
+| TC | **0.8989** | 0.8882 |
+| ET | **0.8503** | 0.8207 |
+
+Four cases (`BRATS_206`, `BRATS_306`, `BRATS_449`, `BRATS_457`), real MONAI checkpoint, no fine-tuning. Full per-case output committed at `backend/data/real_sample_eval.json`.
+
+**Two caveats that travel with these numbers, stated plainly:**
+1. **Four cases is a sample, not the ≥10 held-out cases the PS asks for.** Expanding to 10 is in progress — see `docs/IMPLEMENTATION_PLAN.md` Phase 1b; this document will be updated with the full 10-case figures once that run completes.
+2. **Pretraining overlap with these specific cases cannot be ruled out.** The MONAI checkpoint was trained on BraTS 2018; whether these particular Decathlon case IDs overlap that training set isn't verifiable from the checkpoint's public release. This is disclosed, not hidden — see `backend/data/manifest.json`'s `pretraining_overlap` field.
+
 ## Timing
 
 Measured on this development machine (CPU-only, no GPU):
@@ -71,10 +94,11 @@ A full CPU run already lands comfortably inside the GPU budget — a strong sign
 **Confirmed, measured, reproducible:**
 - The entire geometry/safety pipeline — orientation correctness, reproducibility, anisotropic handling, affine agreement — independent of model quality (this was true even under the heuristic pipeline-smoke-test model, before the real checkpoint was wired in).
 - Real-model inference timing and Dice on the synthetic calibration case.
+- **Real-data accuracy on 4 Decathlon cases** (above) — genuine tumour data, not synthetic.
 - End-to-end server behaviour: a real curl/HTTP upload through `/api/segment/{job}`, live `/status` polling, and correct binary payload sizes served back to a browser-origin fetch.
 
 **Explicitly not yet confirmed, stated honestly rather than implied:**
-- Held-out Dice/sensitivity on a **real, larger BraTS cohort** — the 0.96/0.92/0.95 figures above are a pipeline-integrity check on a synthetic calibration case, not a clinical accuracy result.
+- Held-out Dice/sensitivity on the full **≥10 cases** the PS asks for — 4 of 10 done, expansion in progress (Phase 1b).
 - The skull-strip/non-brain input-sanity heuristics have been validated against the synthetic broken-pack; real-world confirmation against an actual non-skull-stripped clinical volume is a near-term next step.
 - GPU timing on the organiser's actual T4-class hardware.
 

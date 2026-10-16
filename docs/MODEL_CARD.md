@@ -29,11 +29,13 @@ One-page model card, as required by the problem statement's deliverables.
 
 | Metric | Value | Context |
 |---|---|---|
-| Dice — WT / TC / ET | 0.961 / 0.921 / 0.952 | On this project's synthetic calibration/test-pack case — a **pipeline-integrity check**, not a clinical accuracy result |
+| Dice — WT / TC / ET (synthetic) | 0.961 / 0.921 / 0.952 | This project's synthetic calibration/test-pack case — a **pipeline-integrity check**, not a clinical accuracy result |
+| **Dice — WT / TC / ET (real data)** | **0.9013 / 0.8989 / 0.8503** | **4 real Medical Segmentation Decathlon cases** (`BRATS_206/306/449/457`), no fine-tuning — see [`docs/VERIFICATION.md`](VERIFICATION.md#real-data-accuracy-medical-segmentation-decathlon) |
+| Sensitivity — WT / TC / ET (real data) | 0.8677 / 0.8882 / 0.8207 | Same 4 cases |
 | Reproducibility | Dice ≥ 0.99 between repeated runs | Measured: 1.00000 (flip-TTA is deterministic, no randomness involved) |
 | Inference time | ~37s single pass, ~60–75s with 2-pass TTA | CPU-only, this development machine; PS budget is 120s on a T4 GPU |
 
-**Held-out accuracy on a real, larger BraTS cohort has not yet been measured** — this is the next, explicitly flagged step (see [`docs/VERIFICATION.md`](VERIFICATION.md) and [`docs/BACKEND_ROADMAP.md`](BACKEND_ROADMAP.md)). The Dice figures above should not be read as a substitute for that.
+**Two caveats on the real-data figures:** (1) four cases is a sample, not the ≥10 held-out cases the PS asks for — expansion in progress, see `docs/IMPLEMENTATION_PLAN.md` Phase 1b; (2) pretraining overlap with these specific case IDs is not verifiable from the checkpoint's public BraTS-2018 release — disclosed, not assumed clean. Reproduce: `backend/data/real_sample_eval.json` has the full per-case breakdown; the command is in `docs/VERIFICATION.md`.
 
 ## Uncertainty estimation
 
