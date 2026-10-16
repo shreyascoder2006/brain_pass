@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import * as api from '../lib/api'
+import { autoSortFiles, detectSlot, type Slot } from '../lib/sequenceDetect'
 import { useLiveStudy } from '../state/liveStudy'
 import { useStore } from '../state/store'
-
-type Slot = 'T1' | 'T1Gd' | 'T2' | 'FLAIR' | 'expert'
 
 const PIPELINE = ['received', 'validating', 'resampling', 'segmenting', 'measuring', 'meshing', 'reporting', 'done']
 
@@ -64,6 +63,14 @@ function Dropzone({
       <span className={`truncate font-mono text-[10px] ${file ? 'text-emerald-400' : 'text-slate-600'}`}>
         {file ? file.name : 'drop .nii / .nii.gz or click to browse'}
       </span>
+      {file && (() => {
+        const guess = detectSlot(file.name)
+        return guess && guess !== slot ? (
+          <span className="truncate font-mono text-[9.5px] text-amber-400/80">
+            filename looks like {guess} — double-check this slot
+          </span>
+        ) : null
+      })()}
     </label>
   )
 }
@@ -76,7 +83,17 @@ export default function UploadPanel() {
     T1: null, T1Gd: null, T2: null, FLAIR: null, expert: null,
   })
   const [serverStatus, setServerStatus] = useState<{ ok: boolean; modelReady: boolean; message: string } | null>(null)
+  const [unmatched, setUnmatched] = useState<string[]>([])
+  const [bulkOver, setBulkOver] = useState(false)
   const checkedOnce = useRef(false)
+
+  const applyAutoSort = (picked: File[]) => {
+    const { assigned, unmatched: rest } = autoSortFiles(picked)
+    if (Object.keys(assigned).length > 0) {
+      setFiles((s) => ({ ...s, ...assigned }))
+    }
+    setUnmatched(rest.map((f) => f.name))
+  }
 
   useEffect(() => {
     if (!open || checkedOnce.current) return
@@ -134,6 +151,31 @@ export default function UploadPanel() {
           </div>
         )}
 
+        <label
+          onDragOver={(e) => { e.preventDefault(); setBulkOver(true) }}
+          onDragLeave={() => setBulkOver(false)}
+          onDrop={(e) => {
+            e.preventDefault(); setBulkOver(false)
+            applyAutoSort(Array.from(e.dataTransfer.files ?? []))
+          }}
+          className={`mb-2 flex cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed px-3 py-2.5 transition ${
+            bulkOver ? 'border-sky-400 bg-sky-500/10' : 'border-edge/70 bg-panel-2/30 hover:border-slate-500'
+          }`}
+        >
+          <input
+            type="file" multiple accept=".nii,.gz" className="hidden"
+            onChange={(e) => { applyAutoSort(Array.from(e.target.files ?? [])); e.target.value = '' }}
+          />
+          <span className="font-mono text-[10.5px] text-slate-400">
+            Drop all files at once — sorted by filename into the right slot below
+          </span>
+        </label>
+        {unmatched.length > 0 && (
+          <div className="mb-2 rounded-md border border-amber-600/40 bg-amber-500/5 px-2.5 py-1.5 font-mono text-[10px] text-amber-300">
+            Couldn't guess a slot from: {unmatched.join(', ')} — drag {unmatched.length === 1 ? 'it' : 'them'} into the right box manually.
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-2">
           {REQUIRED.map((r) => (
             <Dropzone key={r.key} slot={r.key} label={r.label} hint={r.hint}
@@ -184,7 +226,7 @@ export default function UploadPanel() {
 
         <div className="mt-4 flex items-center justify-between">
           <button
-            onClick={() => { reset(); setFiles({ T1: null, T1Gd: null, T2: null, FLAIR: null, expert: null }) }}
+            onClick={() => { reset(); setFiles({ T1: null, T1Gd: null, T2: null, FLAIR: null, expert: null }); setUnmatched([]) }}
             className="font-mono text-[10.5px] text-slate-500 hover:text-slate-300"
           >
             back to demo phantom
