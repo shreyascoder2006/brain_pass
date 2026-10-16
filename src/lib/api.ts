@@ -1,0 +1,114 @@
+/** Client for the local FastAPI server in backend/server — see backend/server/main.py. */
+
+const BASE = 'http://127.0.0.1:8008'
+
+export interface RegionVolume {
+  voxels: number
+  volume_ml: number
+  formula: string
+}
+
+export interface RegionMetric {
+  region: string
+  dice: number
+  sensitivity: number
+  intersection_voxels: number
+  predicted_voxels: number
+  expert_voxels: number
+}
+
+export interface Finding {
+  code: string
+  sequence: string | null
+  message: string
+}
+
+export interface SegmentMetadata {
+  dims: [number, number, number]
+  spacing: [number, number, number]
+  affine: number[]
+  regions: Record<'WT' | 'TC' | 'ET', RegionVolume>
+  expert: Record<'WT' | 'TC' | 'ET', RegionVolume> | null
+  metrics: Record<'WT' | 'TC' | 'ET', RegionMetric> | null
+  has_expert: boolean
+  model: { name: string; version: string; licence: string; source: string; deterministic: boolean }
+  warnings: Finding[]
+  input_sha256: Record<string, string>
+  code_commit: string
+  timestamp: string
+  runtime_seconds: number
+  disclaimer: string
+  limitations: string[]
+}
+
+export interface SegmentResult {
+  job_id: string
+  status: string
+  metadata: SegmentMetadata
+}
+
+export class ApiError extends Error {
+  errors: Finding[]
+  constructor(errors: Finding[]) {
+    super(errors.map((e) => e.message).join('\n') || 'Request failed.')
+    this.errors = errors
+  }
+}
+
+export async function health(): Promise<{ status: string; model_ready: boolean; model_name: string } | null> {
+  try {
+    const res = await fetch(`${BASE}/api/health`)
+    if (!res.ok) return null
+    return await res.json()
+  } catch {
+    return null
+  }
+}
+
+export interface UploadFiles {
+  T1: File
+  T1Gd: File
+  T2: File
+  FLAIR: File
+  expert?: File
+}
+
+export async function submitStudy(files: UploadFiles): Promise<SegmentResult> {
+  const form = new FormData()
+  form.append('T1', files.T1)
+  form.append('T1Gd', files.T1Gd)
+  form.append('T2', files.T2)
+  form.append('FLAIR', files.FLAIR)
+  if (files.expert) form.append('expert', files.expert)
+
+  let res: Response
+  try {
+    res = await fetch(`${BASE}/api/segment`, { method: 'POST', body: form })
+  } catch {
+    throw new ApiError([
+      { code: 'unreachable', sequence: null, message: 'Cannot reach the local NeuroScope server at ' + BASE + '. Is it running?' },
+    ])
+  }
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    throw new ApiError(body.errors ?? [{ code: 'error', sequence: null, message: body.detail ?? `Request failed (HTTP ${res.status}).` }])
+  }
+  return body as SegmentResult
+}
+
+async function fetchBytes(path: string): Promise<Uint8Array> {
+  const res = await fetch(`${BASE}${path}`)
+  if (!res.ok) throw new Error(`${path}: HTTP ${res.status}`)
+  return new Uint8Array(await res.arrayBuffer())
+}
+
+export const fetchVolume = (jobId: string, seq: 'T1' | 'T1Gd' | 'T2' | 'FLAIR') =>
+  fetchBytes(`/api/jobs/${jobId}/volume/${seq}`)
+
+export const fetchLabels = (jobId: string) => fetchBytes(`/api/jobs/${jobId}/labels`)
+
+export const fetchExpertLabels = (jobId: string) => fetchBytes(`/api/jobs/${jobId}/expert-labels`)
+
+export const reportUrl = (jobId: string) => `${BASE}/api/jobs/${jobId}/report`
+
+export const predictionUrl = (jobId: string) => `${BASE}/api/jobs/${jobId}/prediction`

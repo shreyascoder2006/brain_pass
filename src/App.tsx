@@ -3,6 +3,7 @@ import DisclaimerBanner from './components/DisclaimerBanner'
 import LinkedMprGrid from './components/LinkedMprGrid'
 import ThreeBrainTwin from './components/ThreeBrainTwin'
 import TopBar from './components/TopBar'
+import UploadPanel from './components/UploadPanel'
 import { StudyProvider } from './state/study'
 
 function Loading({ stage }: { stage: string }) {
@@ -29,6 +30,7 @@ export default function App() {
     <div className="flex h-full flex-col bg-ink">
       <TopBar />
       <DisclaimerBanner />
+      <UploadPanel />
       <StudyProvider fallback={(stage) => <Loading stage={stage} />}>
         <main className="grid min-h-0 flex-1 grid-cols-2 gap-2 p-2 pt-2">
           <ThreeBrainTwin />

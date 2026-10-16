@@ -86,15 +86,22 @@ def _bundle_root(bundle_dir: Path) -> Path | None:
 
 
 def load_segmenter(bundle_dir: str | Path) -> Segmenter:
-    """Load the pretrained SegResNet from a downloaded MONAI bundle."""
+    """Load the pretrained SegResNet from a downloaded MONAI bundle.
+
+    If a `model-lock.json` (written by `setup_model.py`) sits next to the
+    weights, its pinned sha256 is checked before the checkpoint is loaded.
+    No lock file means no verification — this keeps `monai.bundle download`
+    working standalone, but `setup_model.py` is the verified path.
+    """
     from monai.networks.nets import SegResNet
 
     root = _bundle_root(Path(bundle_dir))
     if root is None:
         raise FileNotFoundError(
             f"No MONAI bundle under {bundle_dir}. Fetch it with:\n"
-            f"  python -m monai.bundle download --name brats_mri_segmentation "
-            f"--bundle_dir {bundle_dir}"
+            f"  python setup_model.py --bundle-dir {bundle_dir}\n"
+            f"(or: python -m monai.bundle download --name brats_mri_segmentation "
+            f"--bundle_dir {bundle_dir})"
         )
 
     weights = next(
@@ -103,6 +110,21 @@ def load_segmenter(bundle_dir: str | Path) -> Segmenter:
     )
     if weights is None:
         raise FileNotFoundError(f"Bundle at {root} has no models/model.pt.")
+
+    lock_path = weights.parent / "model-lock.json"
+    if lock_path.exists():
+        import json
+
+        from .provenance import sha256
+
+        lock = json.loads(lock_path.read_text())
+        actual = sha256(weights)
+        if actual != lock.get("sha256"):
+            raise FileNotFoundError(
+                f"Checkpoint at {weights} does not match model-lock.json "
+                f"(expected {lock.get('sha256')}, got {actual}). Inference refused — "
+                "re-run setup_model.py to re-fetch a verified checkpoint."
+            )
 
     if weights.suffix == ".ts":
         model = torch.jit.load(str(weights), map_location="cpu")

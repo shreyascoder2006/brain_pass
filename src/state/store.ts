@@ -46,6 +46,9 @@ interface State {
 
   showOverlay: boolean
   toggleOverlay: () => void
+
+  uploadOpen: boolean
+  setUploadOpen: (open: boolean) => void
 }
 
 export const useStore = create<State>((set) => ({
@@ -87,4 +90,7 @@ export const useStore = create<State>((set) => ({
 
   showOverlay: true,
   toggleOverlay: () => set((s) => ({ showOverlay: !s.showOverlay })),
+
+  uploadOpen: false,
+  setUploadOpen: (uploadOpen) => set({ uploadOpen }),
 }))

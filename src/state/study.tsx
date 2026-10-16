@@ -1,9 +1,12 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import type { SegmentMetadata } from '../lib/api'
+import { buildLiveStudy } from '../lib/buildLiveStudy'
 import { buildBrainMesh, buildLatticeMesh, buildRegionMesh } from '../lib/meshing'
 import { generateStudy, type Study } from '../lib/phantom'
 import { buildReport, countVoxels, REGIONS, regionMask, type RegionKey, type RegionReport } from '../lib/regions'
 import { maskBounds, type Mesh } from '../lib/surfaceNets'
 import { invertAffine, type Vec3 } from '../lib/volume'
+import { useLiveStudy } from './liveStudy'
 import type { MaskSource } from './store'
 
 export interface StudyBundle {
@@ -20,6 +23,10 @@ export interface StudyBundle {
   inverseAffine: Float64Array
   sha256: string
   builtAt: string
+  /** 'demo' renders the procedurally generated phantom; 'live' renders an uploaded, segmented case */
+  mode: 'demo' | 'live'
+  jobId: string | null
+  liveMetadata: SegmentMetadata | null
 }
 
 const Ctx = createContext<StudyBundle | null>(null)
@@ -48,6 +55,8 @@ async function digest(study: Study): Promise<string> {
 export function StudyProvider({ children, fallback }: { children: ReactNode; fallback: (stage: string) => ReactNode }) {
   const [bundle, setBundle] = useState<StudyBundle | null>(null)
   const [stage, setStage] = useState('Generating study volumes')
+  const generation = useLiveStudy((s) => s.generation)
+  const live = useLiveStudy((s) => (s.status === 'done' ? { jobId: s.jobId!, metadata: s.metadata! } : null))
 
   useEffect(() => {
     let cancelled = false
@@ -57,8 +66,26 @@ export function StudyProvider({ children, fallback }: { children: ReactNode; fal
     })
 
     ;(async () => {
-      await step('Generating study volumes')
-      const study = generateStudy()
+      let study: Study
+      let mode: 'demo' | 'live' = 'demo'
+      let jobId: string | null = null
+      let liveMetadata: SegmentMetadata | null = null
+
+      if (live) {
+        await step('Fetching segmented study from the local server')
+        try {
+          study = await buildLiveStudy(live.jobId, live.metadata)
+          mode = 'live'
+          jobId = live.jobId
+          liveMetadata = live.metadata
+        } catch (err) {
+          console.error('Falling back to the demo phantom — live study fetch failed:', err)
+          study = generateStudy()
+        }
+      } else {
+        await step('Generating study volumes')
+        study = generateStudy()
+      }
       if (cancelled) return
 
       await step('Deriving WT / TC / ET regions')
@@ -88,7 +115,9 @@ export function StudyProvider({ children, fallback }: { children: ReactNode; fal
       const brainVoxels = countVoxels(study.brain)
       const crop = maskBounds(study.brain, study.dims, 4) ?? { lo: [0, 0, 0] as Vec3, hi: study.dims }
       const report = buildReport(study.predicted, study.expert, brainVoxels, study.spacing)
-      const sha256 = await digest(study)
+      const sha256 = liveMetadata
+        ? liveMetadata.input_sha256.T1Gd ?? Object.values(liveMetadata.input_sha256)[0]
+        : await digest(study)
       if (cancelled) return
 
       setBundle({
@@ -96,11 +125,12 @@ export function StudyProvider({ children, fallback }: { children: ReactNode; fal
         inverseAffine: invertAffine(study.affine),
         sha256,
         builtAt: new Date().toISOString(),
+        mode, jobId, liveMetadata,
       })
     })()
 
     return () => { cancelled = true }
-  }, [])
+  }, [generation])
 
   const value = useMemo(() => bundle, [bundle])
   if (!value) return <>{fallback(stage)}</>

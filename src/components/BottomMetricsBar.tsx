@@ -53,8 +53,10 @@ function RegionCard({ k }: { k: RegionKey }) {
 }
 
 export default function BottomMetricsBar() {
-  const { report, sha256 } = useStudy()
+  const { report, sha256, mode, liveMetadata } = useStudy()
   const { maskSource } = useStore()
+  const hasExpert = mode === 'demo' || Boolean(liveMetadata?.has_expert)
+  const warnings = liveMetadata?.warnings ?? []
 
   const meanDice = REGIONS.reduce((a, d) => a + report[d.key].metric.dice, 0) / REGIONS.length
   const meanSens = REGIONS.reduce((a, d) => a + report[d.key].metric.sensitivity, 0) / REGIONS.length
@@ -77,39 +79,64 @@ export default function BottomMetricsBar() {
 
         <Card>
           <div className="text-[11px] font-medium text-slate-300">Accuracy vs expert mask</div>
-          <div className="mt-1 grid grid-cols-3 gap-x-2 font-mono text-[10px]">
-            <span className="text-slate-600" />
-            <span className="text-slate-500">Dice</span>
-            <span className="text-slate-500">Sens.</span>
-            {REGIONS.map((d) => (
-              <Fragmented key={d.key} colour={d.colour} short={d.short}
-                dice={report[d.key].metric.dice} sens={report[d.key].metric.sensitivity} />
-            ))}
-            <span className="mt-0.5 border-t border-edge pt-0.5 text-slate-400">mean</span>
-            <span className="mt-0.5 border-t border-edge pt-0.5 font-semibold text-emerald-400">
-              {meanDice.toFixed(3)}
-            </span>
-            <span className="mt-0.5 border-t border-edge pt-0.5 font-semibold text-emerald-400">
-              {meanSens.toFixed(3)}
-            </span>
-          </div>
+          {hasExpert ? (
+            <div className="mt-1 grid grid-cols-3 gap-x-2 font-mono text-[10px]">
+              <span className="text-slate-600" />
+              <span className="text-slate-500">Dice</span>
+              <span className="text-slate-500">Sens.</span>
+              {REGIONS.map((d) => (
+                <Fragmented key={d.key} colour={d.colour} short={d.short}
+                  dice={report[d.key].metric.dice} sens={report[d.key].metric.sensitivity} />
+              ))}
+              <span className="mt-0.5 border-t border-edge pt-0.5 text-slate-400">mean</span>
+              <span className="mt-0.5 border-t border-edge pt-0.5 font-semibold text-emerald-400">
+                {meanDice.toFixed(3)}
+              </span>
+              <span className="mt-0.5 border-t border-edge pt-0.5 font-semibold text-emerald-400">
+                {meanSens.toFixed(3)}
+              </span>
+            </div>
+          ) : (
+            <div className="mt-1.5 font-mono text-[10px] text-slate-500">
+              No expert mask was provided for this study.
+            </div>
+          )}
         </Card>
 
-        <div className="flex min-w-0 items-center gap-2.5 rounded-md border border-emerald-600/40 bg-emerald-500/10 px-3 py-2">
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-500/20">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth={2.4}
-              strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-              <path d="M20 6L9 17l-5-5" />
-            </svg>
-          </span>
-          <div className="min-w-0">
-            <div className="text-[10.5px] text-emerald-200/80">Input Validation</div>
-            <div className="text-[17px] font-semibold leading-tight text-emerald-400">PASS</div>
-            <div className="truncate font-mono text-[9px] text-emerald-200/50">
-              4/4 sequences · shapes &amp; affines match
+        {warnings.length === 0 ? (
+          <div className="flex min-w-0 items-center gap-2.5 rounded-md border border-emerald-600/40 bg-emerald-500/10 px-3 py-2">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-500/20">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth={2.4}
+                strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                <path d="M20 6L9 17l-5-5" />
+              </svg>
+            </span>
+            <div className="min-w-0">
+              <div className="text-[10.5px] text-emerald-200/80">Input Validation</div>
+              <div className="text-[17px] font-semibold leading-tight text-emerald-400">PASS</div>
+              <div className="truncate font-mono text-[9px] text-emerald-200/50">
+                {mode === 'live' ? '4/4 sequences · shapes & affines match' : 'demo phantom · synthetic study'}
+              </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <div
+            className="flex min-w-0 items-center gap-2.5 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2"
+            title={warnings.map((w) => w.message).join('\n')}
+          >
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-500/20">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth={2.4}
+                strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                <path d="M12 9v4m0 4h.01M10.3 3.9L2.5 17a1 1 0 00.9 1.5h17.2a1 1 0 00.9-1.5L13.7 3.9a1 1 0 00-1.74 0z" />
+              </svg>
+            </span>
+            <div className="min-w-0">
+              <div className="text-[10.5px] text-amber-200/80">Input Validation</div>
+              <div className="text-[17px] font-semibold leading-tight text-amber-400">PASS · {warnings.length} warning{warnings.length > 1 ? 's' : ''}</div>
+              <div className="truncate font-mono text-[9px] text-amber-200/50">{warnings[0].message}</div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

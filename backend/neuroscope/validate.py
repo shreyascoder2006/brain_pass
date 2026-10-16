@@ -78,7 +78,47 @@ def _check_array(v: Validation, name: str, vol: Volume) -> bool:
         )
         return False
 
+    affine = np.asarray(vol.image.affine, dtype=float)
+    if not np.isfinite(affine).all() or abs(float(np.linalg.det(affine[:3, :3]))) < 1e-8:
+        v.fail(
+            "invalid_affine",
+            f"{name}: the spatial affine is non-finite or singular; voxel-to-world geometry "
+            "is undefined.",
+            name,
+        )
+        return False
+
+    units = vol.image.header.get_xyzt_units()[0]
+    if units not in ("mm", "unknown"):
+        v.fail(
+            "bad_units",
+            f"{name}: header spatial units are '{units}', not millimetres.",
+            name,
+        )
+        return False
+
     return True
+
+
+def _physical_extent_mm(vol) -> np.ndarray:
+    affine = np.asarray(vol.image.affine, dtype=float)
+    spacing = np.linalg.norm(affine[:3, :3], axis=0)
+    return spacing * np.asarray(vol.grid.shape, dtype=float)
+
+
+def _edge_occupancy(data: np.ndarray) -> float:
+    """Fraction of foreground voxels sitting on the outermost voxel shell."""
+    mask = data != 0
+    if mask.sum() == 0:
+        return 0.0
+    faces = np.concatenate(
+        [
+            mask[0].ravel(), mask[-1].ravel(),
+            mask[:, 0].ravel(), mask[:, -1].ravel(),
+            mask[:, :, 0].ravel(), mask[:, :, -1].ravel(),
+        ]
+    )
+    return float(faces.mean())
 
 
 def _looks_skull_stripped(data: np.ndarray) -> tuple[bool, float]:
@@ -178,6 +218,25 @@ def validate_study(paths: dict[str, str | Path]) -> Validation:
             v.warn(
                 "out_of_distribution",
                 f"{name}: does not look like a brain MRI — {why}.",
+                name,
+            )
+
+        extent = _physical_extent_mm(vol)
+        if float(extent.min()) < 65 or float(extent.max()) > 400:
+            v.warn(
+                "implausible_fov",
+                f"{name}: physical field of view is {', '.join(f'{e:.0f}' for e in extent)} mm, "
+                "which is inconsistent with an adult brain study.",
+                name,
+            )
+
+        edge = _edge_occupancy(data)
+        if edge > 0.12:
+            v.warn(
+                "touches_boundary",
+                f"{name}: {edge:.0%} of the outer image shell is non-zero foreground. A "
+                "properly skull-stripped, uncropped brain should not touch the image boundary "
+                "this much.",
                 name,
             )
 

@@ -12,9 +12,7 @@ Research and teaching prototype only. Never use model output as a diagnosis.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
-import subprocess
 import sys
 import time
 from pathlib import Path
@@ -28,28 +26,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from neuroscope import DISCLAIMER, __version__
 from neuroscope import nifti_io as nio
 from neuroscope.infer import HeuristicSegmenter, load_segmenter, stack_channels
+from neuroscope.limits import MAX_INFERENCE_VOXELS, BudgetExceeded, check_voxel_budget
+from neuroscope.provenance import git_commit, sha256
 from neuroscope.regions import regions_to_label, volumes_all, score_all
 from neuroscope.validate import SEQUENCES, validate_study
-
-
-def sha256(path: Path) -> str:
-    h = hashlib.sha256()
-    with open(path, "rb") as fh:
-        for chunk in iter(lambda: fh.read(1 << 20), b""):
-            h.update(chunk)
-    return h.hexdigest()
-
-
-def git_commit() -> str:
-    try:
-        out = subprocess.run(
-            ["git", "rev-parse", "--short", "HEAD"],
-            cwd=Path(__file__).resolve().parent,
-            capture_output=True, text=True, timeout=5,
-        )
-        return out.stdout.strip() or "not a git repository"
-    except Exception:
-        return "unavailable"
 
 
 def make_deterministic(seed: int = 0) -> None:
@@ -110,6 +90,7 @@ def run(args) -> int:
         for n, img in canonical.items()
     }
     work_image = resampled["T1Gd"]
+    check_voxel_budget(work_image.shape[:3], MAX_INFERENCE_VOXELS, "resampled inference grid")
     arrays = {n: np.asanyarray(img.dataobj, dtype=np.float32) for n, img in resampled.items()}
 
     report["preprocessing"] = {
@@ -200,6 +181,9 @@ def main() -> int:
     except FileNotFoundError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 3
+    except BudgetExceeded as exc:
+        print(f"REJECTED: {exc}", file=sys.stderr)
+        return 2
 
 
 if __name__ == "__main__":

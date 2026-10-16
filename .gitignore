@@ -16,6 +16,9 @@ backend/models/
 # Generated test studies — recreate with: python backend/make_testcase.py
 backend/testdata/
 
+# Live server job directories — uploads/results, deleted automatically after 23h
+backend/.runtime/
+
 # Imaging data must never be committed
 *.nii
 *.nii.gz
