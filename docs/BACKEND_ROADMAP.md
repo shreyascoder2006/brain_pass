@@ -50,14 +50,16 @@ against what the frontend's meshing/slice code expects.
 Nothing in later phases matters if these don't hold, because the PS's own
 grading rubric runs before the live demo slot.
 
-1. **Download and verify the MONAI bundle.**
-   `python setup_model.py` (new this phase — wraps `monai.bundle download`
-   and writes a sha256 `model-lock.json`, verified on every load by
-   `neuroscope.infer.load_segmenter`). Then re-run
-   `run_judge_tests.py --model bundle` and confirm the inference-based tests
-   still pass with the real network. This is the single blocking item for
-   the **Held-out accuracy** and **Blind case** judge tests — nothing else in
-   this roadmap substitutes for it.
+1. ~~Download and verify the MONAI bundle.~~ **Done.** `python setup_model.py`
+   fetches the real checkpoint and pins its sha256 in `model-lock.json`,
+   verified on every load by `neuroscope.infer.load_segmenter`.
+   `run_judge_tests.py --model bundle` passes 17/17 with the real network:
+   ~37s/case on CPU (well inside the 2-minute T4 budget), Dice WT 0.960 /
+   TC 0.920 / ET 0.953 on the synthetic calibration case. That number is a
+   pipeline-integrity check, not a real accuracy result — it's a synthetic
+   case, not real BraTS data — so item 2 below is still the one that
+   actually answers the **Held-out accuracy** and **Blind case** judge
+   tests.
 
 2. **Real Dice/sensitivity baseline, patient-split, overlap disclosed.**
    `evaluate.py` already computes Dice/sensitivity over a BraTS-style folder
@@ -76,10 +78,12 @@ grading rubric runs before the live demo slot.
    non-brain image. Find or construct two such cases and confirm a warning
    or refusal actually fires before trusting this at the live judging slot.
 
-4. **2-minute T4 SLA, measured, not assumed.** Everything so far has run on
-   CPU in this environment. Time a full upload-to-report run on the actual
-   organizer GPU class once available; the 128³ sliding-window inference and
-   1.5mm viewer resampling are the two steps likely to dominate.
+4. **2-minute T4 SLA, measured on the organizer's actual hardware.** A full
+   CPU run (upload → report) already comes in around 40-45s on this
+   development machine, which is a strong sign the T4 budget is comfortable
+   — but that's not the organizer's hardware, and it should still be timed
+   there once available; a slower disk, more network latency on the upload,
+   or a larger real case could change the margin.
 
 5. **Linked-view click test against a live (not demo) study**, since the
    crosshair-sync code was built and tested against the phantom. Upload a
@@ -108,6 +112,15 @@ real-world input.
   server now rejects an oversized multipart request by `Content-Length`
   before streaming a single byte, not only after the per-chunk loop catches
   it.
+- ~~Live pipeline-stage progress~~ — **done this pass**: the job id is now
+  minted client-side so the browser can poll `/api/jobs/{id}/status`
+  concurrently with the upload, and the server reports stage transitions
+  (`validating → resampling → segmenting → measuring → meshing →
+  reporting → done`) as it goes. The upload panel shows the live stage and
+  a progress bar instead of a spinner with no information for the ~30-45s
+  a real case takes — this matters specifically for presenting live: judges
+  watching "Running 3D segmentation — this is the slow step…" sit for 30
+  real seconds see the pipeline actually working, not an ambiguous wait.
 - **Structured logging + request IDs.** Right now the server's only
   observability is uvicorn's access log and bare exceptions. A job ID is
   already generated per request — thread it through structured log lines

@@ -5,6 +5,8 @@ import { useStore } from '../state/store'
 
 type Slot = 'T1' | 'T1Gd' | 'T2' | 'FLAIR' | 'expert'
 
+const PIPELINE = ['received', 'validating', 'resampling', 'segmenting', 'measuring', 'meshing', 'reporting', 'done']
+
 const REQUIRED: { key: Slot; label: string; hint: string }[] = [
   { key: 'T1', label: 'T1', hint: 'native T1-weighted' },
   { key: 'T1Gd', label: 'T1Gd', hint: 'post-contrast T1' },
@@ -69,7 +71,7 @@ function Dropzone({
 export default function UploadPanel() {
   const open = useStore((s) => s.uploadOpen)
   const setOpen = useStore((s) => s.setUploadOpen)
-  const { status, errors, submit, reset } = useLiveStudy()
+  const { status, errors, stage, stageMessage, submit, reset } = useLiveStudy()
   const [files, setFiles] = useState<Record<Slot, File | null>>({
     T1: null, T1Gd: null, T2: null, FLAIR: null, expert: null,
   })
@@ -143,6 +145,26 @@ export default function UploadPanel() {
             file={files.expert} onPick={(f) => setFiles((s) => ({ ...s, expert: f }))} optional />
         </div>
 
+        {status === 'uploading' && (
+          <div className="mt-3 rounded-md border border-sky-600/40 bg-sky-500/5 px-2.5 py-2">
+            <div className="flex items-center gap-2">
+              <span className="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-sky-400/30 border-t-sky-400" />
+              <span className="font-mono text-[11px] text-sky-300">{stageMessage ?? 'Starting…'}</span>
+            </div>
+            <div className="mt-2 flex gap-1">
+              {PIPELINE.map((s) => {
+                const i = PIPELINE.indexOf(s)
+                const current = PIPELINE.indexOf(stage ?? 'received')
+                return (
+                  <span key={s} className={`h-1 flex-1 rounded-full transition-colors ${
+                    i <= current ? 'bg-sky-400' : 'bg-slate-700'
+                  }`} />
+                )
+              })}
+            </div>
+          </div>
+        )}
+
         {status === 'error' && errors.length > 0 && (
           <div className="mt-3 space-y-1 rounded-md border border-rose-600/40 bg-rose-500/5 px-2.5 py-2">
             <div className="text-[11px] font-medium text-rose-300">Input rejected — no result was produced.</div>
@@ -172,7 +194,7 @@ export default function UploadPanel() {
             disabled={!ready || status === 'uploading'}
             className="rounded-md border border-sky-500/50 bg-sky-500/10 px-3.5 py-1.5 text-[11.5px] font-medium text-sky-300 transition hover:bg-sky-500/20 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {status === 'uploading' ? 'Validating & segmenting…' : 'Run segmentation'}
+            {status === 'uploading' ? 'Processing…' : 'Run segmentation'}
           </button>
         </div>
       </div>

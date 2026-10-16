@@ -73,7 +73,29 @@ export interface UploadFiles {
   expert?: File
 }
 
-export async function submitStudy(files: UploadFiles): Promise<SegmentResult> {
+/** 32 lowercase hex chars, minted client-side so /status can be polled before the upload resolves. */
+export function newJobId(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(16))
+  return Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('')
+}
+
+export interface Stage {
+  stage: string
+  message: string
+  at: number
+}
+
+export async function pollStage(jobId: string): Promise<Stage | null> {
+  try {
+    const res = await fetch(`${BASE}/api/jobs/${jobId}/status`)
+    if (!res.ok) return null
+    return await res.json()
+  } catch {
+    return null
+  }
+}
+
+export async function submitStudy(jobId: string, files: UploadFiles): Promise<SegmentResult> {
   const form = new FormData()
   form.append('T1', files.T1)
   form.append('T1Gd', files.T1Gd)
@@ -83,7 +105,7 @@ export async function submitStudy(files: UploadFiles): Promise<SegmentResult> {
 
   let res: Response
   try {
-    res = await fetch(`${BASE}/api/segment`, { method: 'POST', body: form })
+    res = await fetch(`${BASE}/api/segment/${jobId}`, { method: 'POST', body: form })
   } catch {
     throw new ApiError([
       { code: 'unreachable', sequence: null, message: 'Cannot reach the local NeuroScope server at ' + BASE + '. Is it running?' },

@@ -19,7 +19,6 @@ import shutil
 import sys
 import threading
 import time
-import uuid
 from pathlib import Path
 
 import nibabel as nib
@@ -46,6 +45,29 @@ JOBS.mkdir(parents=True, exist_ok=True)
 MAX_UPLOAD_BYTES = 1024**3  # 1 GB per file, matches the validator's own limit
 RETENTION_SECONDS = 23 * 3600
 busy = threading.Lock()
+
+# In-memory pipeline-stage tracker so the browser can show real progress
+# (validating / resampling / segmenting / meshing / reporting) during the one
+# in-flight request, instead of a spinner with no information for ~30-90s.
+# Polled, not pushed — simplest thing that works for one local demo machine.
+_progress_lock = threading.Lock()
+PROGRESS: dict[str, dict] = {}
+
+STAGES = {
+    "received": "Upload received, validating…",
+    "validating": "Checking geometry, orientation and anatomy…",
+    "resampling": "Reorienting and resampling onto the working grid…",
+    "segmenting": "Running 3D segmentation — this is the slow step…",
+    "measuring": "Computing region volumes and expert-mask metrics…",
+    "meshing": "Building the display grid and binary payload for the viewer…",
+    "reporting": "Writing the provenance report…",
+    "done": "Complete.",
+}
+
+
+def report_stage(job: str, stage: str) -> None:
+    with _progress_lock:
+        PROGRESS[job] = {"stage": stage, "message": STAGES[stage], "at": time.time()}
 
 _segmenter_cache: Segmenter | HeuristicSegmenter | None = None
 
@@ -127,8 +149,9 @@ def _findings(findings) -> list[dict]:
     return [{"code": f.code, "sequence": f.sequence, "message": f.message} for f in findings]
 
 
-def process(paths: dict[str, Path], expert_path: Path | None, out: Path) -> dict:
+def process(job: str, paths: dict[str, Path], expert_path: Path | None, out: Path) -> dict:
     started = time.perf_counter()
+    report_stage(job, "validating")
     validation = validate_study(paths)
     if not validation.ok:
         raise InputRejected(_findings(validation.errors))
@@ -136,6 +159,7 @@ def process(paths: dict[str, Path], expert_path: Path | None, out: Path) -> dict
     reference = validation.volumes["T1Gd"]
     target_grid = reference.grid
 
+    report_stage(job, "resampling")
     canonical = {n: nio.to_canonical(v.image) for n, v in validation.volumes.items()}
     resampled = {n: nio.resample_to_spacing(img, spacing=1.0, order=1) for n, img in canonical.items()}
     work_image = resampled["T1Gd"]
@@ -145,6 +169,7 @@ def process(paths: dict[str, Path], expert_path: Path | None, out: Path) -> dict
         raise InputRejected([{"code": "budget_exceeded", "sequence": None, "message": str(exc)}]) from exc
     arrays = {n: np.asanyarray(img.dataobj, dtype=np.float32) for n, img in resampled.items()}
 
+    report_stage(job, "segmenting")
     segmenter = get_segmenter()
     channels = stack_channels(arrays)
     regions_out = segmenter(channels, threshold=0.5)
@@ -156,6 +181,7 @@ def process(paths: dict[str, Path], expert_path: Path | None, out: Path) -> dict
 
     nio.save_label(label_out, target_grid, out / "prediction.nii.gz", reference=reference.image)
 
+    report_stage(job, "measuring")
     truth = None
     expert_warning = None
     if expert_path is not None:
@@ -165,6 +191,7 @@ def process(paths: dict[str, Path], expert_path: Path | None, out: Path) -> dict
         else:
             expert_warning = "; ".join(f.message for f in lv.errors)
 
+    report_stage(job, "meshing")
     geometry = prepare_viewer(
         images={n: v.image for n, v in validation.volumes.items()},
         label=label_out,
@@ -172,6 +199,8 @@ def process(paths: dict[str, Path], expert_path: Path | None, out: Path) -> dict
         out=out,
         expert=truth,
     )
+
+    report_stage(job, "reporting")
 
     info = segmenter.info
     metadata = {
@@ -208,6 +237,7 @@ def process(paths: dict[str, Path], expert_path: Path | None, out: Path) -> dict
         Path(p).unlink(missing_ok=True)
     if expert_path:
         Path(expert_path).unlink(missing_ok=True)
+    report_stage(job, "done")
     return metadata
 
 
@@ -217,21 +247,33 @@ class InputRejected(Exception):
         super().__init__("; ".join(e["message"] for e in errors))
 
 
-@app.post("/api/segment")
+def _valid_job_id(job: str) -> bool:
+    return len(job) == 32 and all(c in "0123456789abcdef" for c in job)
+
+
+@app.post("/api/segment/{job}")
 async def segment(
+    job: str,
     T1: UploadFile = File(...),
     T1Gd: UploadFile = File(...),
     T2: UploadFile = File(...),
     FLAIR: UploadFile = File(...),
     expert: UploadFile | None = File(None),
 ):
+    # The job id is minted client-side (32 hex chars) so the browser can start
+    # polling /status for this id before this request finishes uploading.
+    if not _valid_job_id(job):
+        raise HTTPException(400, "Invalid job id.")
     uploads = {"T1": T1, "T1Gd": T1Gd, "T2": T2, "FLAIR": FLAIR}
     if not busy.acquire(blocking=False):
         raise HTTPException(409, "One study is already processing. Wait for it to finish.")
 
-    job = uuid.uuid4().hex
     out = JOBS / job
+    if out.exists():
+        busy.release()
+        raise HTTPException(409, "Job id already in use.")
     out.mkdir()
+    report_stage(job, "received")
     paths: dict[str, Path] = {}
     expert_path: Path | None = None
     try:
@@ -254,19 +296,32 @@ async def segment(
             else:
                 paths[name] = path
 
-        metadata = await run_in_threadpool(process, paths, expert_path, out)
+        metadata = await run_in_threadpool(process, job, paths, expert_path, out)
         return {"job_id": job, "status": "completed", "metadata": metadata}
     except InputRejected as exc:
         shutil.rmtree(out, ignore_errors=True)
+        with _progress_lock:
+            PROGRESS.pop(job, None)
         return JSONResponse({"status": "rejected", "errors": exc.errors}, status_code=422)
     except Exception as exc:  # pragma: no cover - last-resort guard, never return a partial result
         shutil.rmtree(out, ignore_errors=True)
+        with _progress_lock:
+            PROGRESS.pop(job, None)
         raise HTTPException(500, f"Processing failed; no result is available ({exc.__class__.__name__}).") from exc
     finally:
         busy.release()
         for upload in [*uploads.values(), expert]:
             if upload:
                 await upload.close()
+
+
+@app.get("/api/jobs/{job}/status")
+def job_status(job: str):
+    with _progress_lock:
+        entry = PROGRESS.get(job)
+    if entry is None:
+        raise HTTPException(404, "Unknown job id.")
+    return entry
 
 
 def _jobdir(job: str) -> Path:
