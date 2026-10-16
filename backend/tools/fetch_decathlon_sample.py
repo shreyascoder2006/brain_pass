@@ -63,11 +63,36 @@ def _make_session() -> requests.Session:
 _SESSION = _make_session()
 
 
-def _range_get(url: str, start: int, length: int, timeout: int = 30) -> bytes:
+def _range_get(url: str, start: int, length: int, timeout: int = 30, attempts: int = 5) -> bytes:
+    """One Range request, with its own retry loop for read timeouts.
+
+    The session's urllib3.Retry (see `_make_session`) only covers connection-
+    establishment failures and specific status codes — it does *not* retry a
+    timeout that happens mid-stream while the response body is being read,
+    which is exactly the failure mode a multi-ten-megabyte payload request hits
+    on a slow or flaky link (small header requests finish well inside the
+    timeout and never hit this path). Scale the timeout with the request size
+    so a large payload gets a realistic window rather than the same 30s a
+    512-byte header request uses.
+    """
     headers = {"Range": f"bytes={start}-{start + length - 1}"}
-    resp = _SESSION.get(url, headers=headers, timeout=timeout)
-    resp.raise_for_status()
-    return resp.content
+    effective_timeout = max(timeout, length / (256 * 1024))  # floor: ~256KB/s before timing out
+    last_error: Exception | None = None
+    for attempt in range(1, attempts + 1):
+        try:
+            resp = _SESSION.get(url, headers=headers, timeout=effective_timeout)
+            resp.raise_for_status()
+            return resp.content
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as exc:
+            last_error = exc
+            if attempt == attempts:
+                break
+            wait = min(30, 2 ** attempt)
+            print(f"  range request failed ({exc.__class__.__name__}), "
+                  f"retry {attempt}/{attempts - 1} in {wait}s...", file=sys.stderr)
+            time.sleep(wait)
+    raise TarWalkError(f"Range request for bytes={start}-{start + length - 1} failed after "
+                        f"{attempts} attempts: {last_error}") from last_error
 
 
 def _parse_octal(field: bytes) -> int:

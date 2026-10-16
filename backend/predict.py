@@ -28,7 +28,7 @@ from neuroscope import nifti_io as nio
 from neuroscope.infer import HeuristicSegmenter, load_segmenter, stack_channels
 from neuroscope.limits import MAX_INFERENCE_VOXELS, BudgetExceeded, check_voxel_budget
 from neuroscope.provenance import git_commit, sha256
-from neuroscope.regions import connectivity_all, regions_to_label, volumes_all, score_all
+from neuroscope.regions import REGION_ORDER, connectivity_all, hd95, regions_to_label, volumes_all, score_all
 from neuroscope.validate import SEQUENCES, validate_study
 
 
@@ -150,7 +150,11 @@ def run(args) -> int:
         lv = validate_label(args.label, target_grid)
         if lv.ok:
             truth = np.asanyarray(lv.volumes["label"].image.dataobj).astype(np.uint8)
-            report["metrics"] = {k: m.as_dict() for k, m in score_all(label_out, truth).items()}
+            distances = {r: hd95(label_out, truth, r, reference.spacing) for r in REGION_ORDER}
+            report["metrics"] = {
+                k: {**m.as_dict(), **distances[k].as_dict()}
+                for k, m in score_all(label_out, truth).items()
+            }
             report["expert_volumes"] = volumes_all(truth, reference.spacing)
         else:
             report["metrics"] = {"error": [f.message for f in lv.errors]}
@@ -163,8 +167,10 @@ def run(args) -> int:
     print(json.dumps({
         "output": str(out_path),
         "volumes_ml": {k: v["volume_ml"] for k, v in report["volumes"].items()},
-        **({"dice": {k: v["dice"] for k, v in report["metrics"].items()}}
-           if args.label and "error" not in report.get("metrics", {}) else {}),
+        **({
+            "dice": {k: v["dice"] for k, v in report["metrics"].items()},
+            "hd95_mm": {k: v["hd95_mm"] for k, v in report["metrics"].items()},
+        } if args.label and "error" not in report.get("metrics", {}) else {}),
         "runtime_seconds": report["runtime_seconds"],
     }, indent=2))
     return 0

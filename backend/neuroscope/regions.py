@@ -275,3 +275,62 @@ def agreement(pred: np.ndarray, truth: np.ndarray, region: str,
 def agreement_all(pred: np.ndarray, truth: np.ndarray,
                   spacing: tuple[float, float, float]) -> dict[str, dict]:
     return {r: agreement(pred, truth, r, spacing).as_dict() for r in REGION_ORDER}
+
+
+@dataclass
+class Distance:
+    """95th-percentile Hausdorff distance (HD95) between predicted and expert boundaries.
+
+    Dice and sensitivity are both volume-overlap metrics — a thin sliver of
+    disagreement at a tumour's edge barely moves either of them. HD95
+    measures the disagreement the other way: by distance, in mm, which is
+    what actually matters for "how far off is this boundary" and is the
+    metric the PS names explicitly as extra credit.
+    """
+
+    hd95_mm: float | None  # None, not 0 or inf, when either mask is empty — see definition.
+
+    def as_dict(self) -> dict:
+        return {
+            "hd95_mm": round(self.hd95_mm, 3) if self.hd95_mm is not None else None,
+            "hd95_definition":
+                "95th percentile of the symmetric boundary-to-boundary distance: every "
+                "predicted-boundary voxel's distance to the nearest expert-boundary voxel, "
+                "and every expert-boundary voxel's distance to the nearest predicted-boundary "
+                "voxel, combined, via a spacing-aware Euclidean distance transform. Using the "
+                "95th percentile rather than the maximum (the plain Hausdorff distance) keeps "
+                "one stray outlier voxel from dominating the number. Null, not zero or infinite, "
+                "when either region is empty — a boundary distance against nothing is undefined, "
+                "not a perfect or worst-case score.",
+        }
+
+
+def hd95(pred: np.ndarray, truth: np.ndarray, region: str,
+         spacing: tuple[float, float, float]) -> Distance:
+    p = region_mask(pred, region)
+    t = region_mask(truth, region)
+    if not p.any() or not t.any():
+        return Distance(None)
+
+    p_boundary = np.logical_xor(p, ndimage.binary_erosion(p))
+    t_boundary = np.logical_xor(t, ndimage.binary_erosion(t))
+    if not p_boundary.any() or not t_boundary.any():
+        # A region with no interior (every voxel is already its own boundary) —
+        # treat the whole region as its boundary rather than reporting undefined.
+        p_boundary = p_boundary if p_boundary.any() else p
+        t_boundary = t_boundary if t_boundary.any() else t
+
+    # Distance from every voxel to the nearest boundary voxel of the *other* mask,
+    # sampled in physical mm so anisotropic spacing doesn't distort the result.
+    dist_to_truth = ndimage.distance_transform_edt(~t_boundary, sampling=spacing)
+    dist_to_pred = ndimage.distance_transform_edt(~p_boundary, sampling=spacing)
+
+    pred_to_truth = dist_to_truth[p_boundary]
+    truth_to_pred = dist_to_pred[t_boundary]
+    symmetric = np.concatenate([pred_to_truth, truth_to_pred])
+    return Distance(float(np.percentile(symmetric, 95)))
+
+
+def hd95_all(pred: np.ndarray, truth: np.ndarray,
+             spacing: tuple[float, float, float]) -> dict[str, dict]:
+    return {r: hd95(pred, truth, r, spacing).as_dict() for r in REGION_ORDER}

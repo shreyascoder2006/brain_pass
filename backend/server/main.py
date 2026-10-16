@@ -40,6 +40,7 @@ from neuroscope.regions import (
     agreement_all,
     connectivity_all,
     geometry_all,
+    hd95,
     regions_to_label,
     score_all,
     volumes_all,
@@ -261,7 +262,10 @@ def process(job: str, paths: dict[str, Path], expert_path: Path | None, out: Pat
         "connectivity": connectivity_all(label_out, reference.spacing),
         "geometry": geometry_all(label_out, reference.spacing),
         "expert": volumes_all(truth, reference.spacing) if truth is not None else None,
-        "metrics": {k: m.as_dict() for k, m in score_all(label_out, truth).items()} if truth is not None else None,
+        "metrics": {
+            k: {**m.as_dict(), **hd95(label_out, truth, k, reference.spacing).as_dict()}
+            for k, m in score_all(label_out, truth).items()
+        } if truth is not None else None,
         "agreement": agreement_all(label_out, truth, reference.spacing) if truth is not None else None,
         "has_expert": truth is not None,
         "uncertainty": uncertainty_summary,

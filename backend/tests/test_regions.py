@@ -17,6 +17,7 @@ from neuroscope.regions import (
     compare,
     connectivity,
     geometry,
+    hd95,
     region_mask,
     regions_to_label,
     volume_ml,
@@ -145,6 +146,47 @@ def test_agreement_with_no_expert_voxels_reports_no_miss():
     assert a.false_negative == 0
     assert a.largest_miss_voxel is None
     assert a.largest_miss_volume_ml == 0.0
+
+
+def test_hd95_identical_masks_is_zero():
+    label = np.zeros((10, 10, 10), dtype=np.uint8)
+    label[2:6, 2:6, 2:6] = ET
+    d = hd95(label, label, "ET", (1.0, 1.0, 1.0))
+    assert d.hd95_mm == pytest.approx(0.0)
+
+
+def test_hd95_undefined_when_either_mask_empty():
+    pred = np.zeros((6, 6, 6), dtype=np.uint8)
+    pred[1:3, 1:3, 1:3] = ET
+    truth = np.zeros((6, 6, 6), dtype=np.uint8)  # no ET voxels at all
+    d = hd95(pred, truth, "ET", (1.0, 1.0, 1.0))
+    assert d.hd95_mm is None  # undefined, not 0 (perfect) or inf (worst-case)
+
+    d_both_empty = hd95(truth, truth, "ET", (1.0, 1.0, 1.0))
+    assert d_both_empty.hd95_mm is None
+
+
+def test_hd95_single_voxel_pair_matches_hand_computed_distance():
+    # Two lone voxels 5mm apart on one axis: a single-voxel mask's boundary is
+    # the whole mask (erosion removes it entirely), so HD95 collapses to the
+    # exact point-to-point distance -- the simplest possible hand-checkable case.
+    pred = np.zeros((10, 10, 10), dtype=np.uint8)
+    pred[0, 0, 0] = ET
+    truth = np.zeros((10, 10, 10), dtype=np.uint8)
+    truth[5, 0, 0] = ET
+    d = hd95(pred, truth, "ET", (1.0, 1.0, 1.0))
+    assert d.hd95_mm == pytest.approx(5.0)
+
+
+def test_hd95_respects_anisotropic_spacing():
+    # Same voxel offset as above (1 voxel along x), but x-spacing is 2mm --
+    # the physical distance must scale with spacing, not voxel count.
+    pred = np.zeros((4, 4, 4), dtype=np.uint8)
+    pred[0, 0, 0] = ET
+    truth = np.zeros((4, 4, 4), dtype=np.uint8)
+    truth[1, 0, 0] = ET
+    d = hd95(pred, truth, "ET", (2.0, 1.0, 1.0))
+    assert d.hd95_mm == pytest.approx(2.0)
 
 
 def test_volumes_all_reports_formula_inline():

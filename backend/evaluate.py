@@ -28,7 +28,7 @@ sys.path.insert(0, str(HERE))
 from neuroscope import DISCLAIMER
 from neuroscope import nifti_io as nio
 from neuroscope.infer import HeuristicSegmenter, load_segmenter, stack_channels
-from neuroscope.regions import REGION_ORDER, regions_to_label, score_all
+from neuroscope.regions import REGION_ORDER, hd95, regions_to_label, score_all
 from neuroscope.validate import validate_study
 
 PATTERNS = {
@@ -106,23 +106,36 @@ def main() -> int:
         truth = np.asanyarray(nib.load(str(label_path)).dataobj).astype(np.uint8)
 
         metrics = score_all(pred, truth)
+        spacing = v.volumes["T1Gd"].spacing
+        distances = {r: hd95(pred, truth, r, spacing) for r in REGION_ORDER}
         rows.append({
             "case": folder.name,
             "seconds": round(time.time() - started, 1),
-            **{r: metrics[r].as_dict() for r in REGION_ORDER},
+            **{r: {**metrics[r].as_dict(), **distances[r].as_dict()} for r in REGION_ORDER},
         })
         print(f"{folder.name}: " + ", ".join(
-            f"{r} dice {metrics[r].dice:.3f} sens {metrics[r].sensitivity:.3f}"
+            f"{r} dice {metrics[r].dice:.3f} sens {metrics[r].sensitivity:.3f} "
+            f"hd95 {distances[r].hd95_mm:.2f}mm" if distances[r].hd95_mm is not None
+            else f"{r} dice {metrics[r].dice:.3f} sens {metrics[r].sensitivity:.3f} hd95 n/a"
             for r in REGION_ORDER))
 
     if not rows:
         print("No scorable cases.", file=sys.stderr)
         return 1
 
+    def _mean_hd95(region: str) -> dict:
+        values = [row[region]["hd95_mm"] for row in rows if row[region]["hd95_mm"] is not None]
+        undefined = len(rows) - len(values)
+        return {
+            "mean_hd95_mm": round(float(np.mean(values)), 3) if values else None,
+            "hd95_undefined_cases": undefined,  # empty prediction or empty ground truth for this region
+        }
+
     summary = {
         r: {
             "mean_dice": round(float(np.mean([row[r]["dice"] for row in rows])), 4),
             "mean_sensitivity": round(float(np.mean([row[r]["sensitivity"] for row in rows])), 4),
+            **_mean_hd95(r),
         }
         for r in REGION_ORDER
     }
@@ -142,8 +155,11 @@ def main() -> int:
 
     print("\n=== mean over " + str(len(rows)) + " cases ===")
     for r in REGION_ORDER:
+        hd95_str = (f"{summary[r]['mean_hd95_mm']:.2f}mm"
+                    if summary[r]["mean_hd95_mm"] is not None else "n/a")
         print(f"  {r}: Dice {summary[r]['mean_dice']:.4f}  "
-              f"Sensitivity {summary[r]['mean_sensitivity']:.4f}")
+              f"Sensitivity {summary[r]['mean_sensitivity']:.4f}  "
+              f"HD95 {hd95_str} ({summary[r]['hd95_undefined_cases']} undefined)")
     print(f"\nTraining-data overlap: {args.training_overlap}")
     print(f"Wrote {args.out}")
     return 0
