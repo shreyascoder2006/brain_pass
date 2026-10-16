@@ -26,9 +26,8 @@ export default function TopBar() {
         {NAV.map((n, i) => (
           <button
             key={n}
-            className={`rounded px-2.5 py-1 text-[11.5px] transition ${
-              i === 0 ? 'bg-white/5 text-slate-200' : 'text-slate-500 hover:text-slate-300'
-            }`}
+            className={`rounded px-2.5 py-1 text-[11.5px] transition ${i === 0 ? 'bg-white/5 text-slate-200' : 'text-slate-500 hover:text-slate-300'
+              }`}
           >
             {n}
           </button>

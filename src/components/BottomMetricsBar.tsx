@@ -21,9 +21,8 @@ function RegionCard({ k }: { k: RegionKey }) {
   return (
     <button
       onClick={() => setIsolated(isolated === k ? null : k)}
-      className={`min-w-0 rounded-md border bg-panel-2/60 px-3 py-2 text-left transition hover:bg-panel-2 ${
-        isolated === k ? 'border-sky-500/60' : 'border-edge'
-      }`}
+      className={`min-w-0 rounded-md border bg-panel-2/60 px-3 py-2 text-left transition hover:bg-panel-2 ${isolated === k ? 'border-sky-500/60' : 'border-edge'
+        }`}
     >
       <div className="flex items-center gap-1.5">
         <span className="h-2 w-2 shrink-0 rounded-[2px]" style={{ background: r.def.colour }} />

@@ -13,7 +13,9 @@
   --font-mono: ui-monospace, 'SFMono-Regular', 'Cascadia Mono', Consolas, monospace;
 }
 
-html, body, #root {
+html,
+body,
+#root {
   height: 100%;
 }
 
@@ -26,10 +28,23 @@ body {
   overflow: hidden;
 }
 
-::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #2b3647; border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: #3a4860; }
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2b3647;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3a4860;
+}
 
 input[type='range'] {
   -webkit-appearance: none;
@@ -39,6 +54,7 @@ input[type='range'] {
   background: #2b3647;
   outline: none;
 }
+
 input[type='range']::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
@@ -50,6 +66,7 @@ input[type='range']::-webkit-slider-thumb {
   box-shadow: 0 0 0 1px #3a4860;
   cursor: pointer;
 }
+
 input[type='range']::-moz-range-thumb {
   width: 11px;
   height: 11px;
@@ -68,7 +85,17 @@ input[type='range'].vertical {
 }
 
 @keyframes pulse-ring {
-  0%, 100% { opacity: 0.35; }
-  50% { opacity: 1; }
+
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+
+  50% {
+    opacity: 1;
+  }
 }
-.pulse-ring { animation: pulse-ring 2s ease-in-out infinite; }
+
+.pulse-ring {
+  animation: pulse-ring 2s ease-in-out infinite;
+}
