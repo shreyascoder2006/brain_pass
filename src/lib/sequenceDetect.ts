@@ -14,9 +14,13 @@ const PATTERNS: { slot: Slot; re: RegExp }[] = [
   { slot: 'expert', re: /(^|[_\-.])(seg|label|mask|gt|groundtruth|ground-truth)([_\-.]|$)/i },
   { slot: 'T1Gd', re: /(^|[_\-.])t1\s*(ce|gd|c|post|\+c)([_\-.]|$)/i },
   { slot: 'T1Gd', re: /t1[\s_-]?gad|post[\s_-]?contrast|contrast[\s_-]?enhanc/i },
+  { slot: 'T1Gd', re: /[_\-.]0002([_\-.]|$)/i }, // BraTS Synapse convention: 0002 = T1ce
   { slot: 'FLAIR', re: /(^|[_\-.])(flair|t2f)([_\-.]|$)/i },
+  { slot: 'FLAIR', re: /[_\-.]0000([_\-.]|$)/i }, // BraTS Synapse convention: 0000 = FLAIR
   { slot: 'T2', re: /(^|[_\-.])(t2w?)([_\-.]|$)/i },
+  { slot: 'T2', re: /[_\-.]0003([_\-.]|$)/i }, // BraTS Synapse convention: 0003 = T2
   { slot: 'T1', re: /(^|[_\-.])(t1w?|t1n)([_\-.]|$)/i },
+  { slot: 'T1', re: /[_\-.]0001([_\-.]|$)/i }, // BraTS Synapse convention: 0001 = T1
 ]
 
 export function detectSlot(filename: string): Slot | null {

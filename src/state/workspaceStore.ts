@@ -6,6 +6,7 @@ export type WorkspaceKey =
   | 'review'
   | 'research'
   | 'trust'
+  | 'patient'
   | 'learn'
   | 'graph'
 

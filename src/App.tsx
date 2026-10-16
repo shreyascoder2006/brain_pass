@@ -7,6 +7,7 @@ import TopBar from './components/TopBar'
 import UploadPanel from './components/UploadPanel'
 import CommandCentreWorkspace from './components/workspaces/CommandCentreWorkspace'
 import NeuroLearnWorkspace from './components/workspaces/NeuroLearnWorkspace'
+import PatientWorkspace from './components/workspaces/PatientWorkspace'
 import ResearchGraphWorkspace from './components/workspaces/ResearchGraphWorkspace'
 import ResearchLabWorkspace from './components/workspaces/ResearchLabWorkspace'
 import ReviewWorkspace from './components/workspaces/ReviewWorkspace'
@@ -80,6 +81,8 @@ export default function App() {
               <TrustExplainabilityWorkspace />
             </StudyProvider>
           )}
+
+          {activeWorkspace === 'patient' && <PatientWorkspace />}
 
           {activeWorkspace === 'learn' && <NeuroLearnWorkspace />}
 

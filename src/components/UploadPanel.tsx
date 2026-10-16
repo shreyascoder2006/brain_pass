@@ -3,6 +3,7 @@ import * as api from '../lib/api'
 import { autoSortFiles, detectSlot, type Slot } from '../lib/sequenceDetect'
 import { useLiveStudy } from '../state/liveStudy'
 import { useStore } from '../state/store'
+import { useWorkspaceStore } from '../state/workspaceStore'
 
 const PIPELINE = ['received', 'validating', 'resampling', 'segmenting', 'measuring', 'meshing', 'reporting', 'done']
 
@@ -109,6 +110,7 @@ export default function UploadPanel() {
 
   useEffect(() => {
     if (status !== 'done') return
+    useWorkspaceStore.getState().setActiveWorkspace('viewer')
     const t = setTimeout(() => setOpen(false), 900)
     return () => clearTimeout(t)
   }, [status, setOpen])
