@@ -21,8 +21,11 @@ backend/.runtime/
 
 # Decathlon download + converted per-case volumes — recreate with:
 #   python backend/tools/convert_decathlon.py --out backend/data
+# or, for a small real sample instead of the full 7.6 GB archive:
+#   python backend/tools/fetch_decathlon_sample.py --out backend/data/raw_sample
 # (manifest.json and decathlon_split.json are small and stay tracked)
 backend/data/raw/
+backend/data/raw_sample/
 backend/data/decathlon/
 
 # Imaging data must never be committed

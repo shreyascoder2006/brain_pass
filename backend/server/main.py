@@ -14,7 +14,7 @@ import contextlib
 import datetime
 import html
 import json
-import os
+import logging
 import shutil
 import sys
 import threading
@@ -32,6 +32,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from neuroscope import DISCLAIMER, __version__
 from neuroscope import nifti_io as nio
+from neuroscope.config import Settings
 from neuroscope.infer import HeuristicSegmenter, Segmenter, load_segmenter, stack_channels
 from neuroscope.limits import MAX_INFERENCE_VOXELS, BudgetExceeded, check_voxel_budget
 from neuroscope.provenance import git_commit, sha256
@@ -40,11 +41,18 @@ from neuroscope.validate import SEQUENCES, validate_label, validate_study
 from server.viewer import prepare_viewer
 
 ROOT = Path(__file__).resolve().parents[1]
-JOBS = Path(os.environ.get("NEUROSCOPE_JOB_DIR", str(ROOT / ".runtime" / "jobs")))
+SETTINGS = Settings.from_env()
+JOBS = SETTINGS.job_dir
 JOBS.mkdir(parents=True, exist_ok=True)
-MAX_UPLOAD_BYTES = 1024**3  # 1 GB per file, matches the validator's own limit
-RETENTION_SECONDS = 23 * 3600
+MAX_UPLOAD_BYTES = SETTINGS.max_upload_bytes
+RETENTION_SECONDS = SETTINGS.retention_seconds
 busy = threading.Lock()
+
+logging.basicConfig(
+    level=getattr(logging, SETTINGS.log_level.upper(), logging.INFO),
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
+log = logging.getLogger("neuroscope.server")
 
 # In-memory pipeline-stage tracker so the browser can show real progress
 # (validating / resampling / segmenting / meshing / reporting) during the one
@@ -52,6 +60,11 @@ busy = threading.Lock()
 # Polled, not pushed — simplest thing that works for one local demo machine.
 _progress_lock = threading.Lock()
 PROGRESS: dict[str, dict] = {}
+# The job the global `busy` lock is currently held for, if any — read by a
+# second uploader's rejection path so "busy" comes with a concrete stage
+# ("queued behind <job>, currently: Running 3D segmentation") instead of a
+# bare retry-later with no information.
+_current_job: str | None = None
 
 STAGES = {
     "received": "Upload received, validating…",
@@ -66,8 +79,12 @@ STAGES = {
 
 
 def report_stage(job: str, stage: str) -> None:
+    now = time.time()
     with _progress_lock:
-        PROGRESS[job] = {"stage": stage, "message": STAGES[stage], "at": time.time()}
+        previous = PROGRESS.get(job)
+        PROGRESS[job] = {"stage": stage, "message": STAGES[stage], "at": now}
+    elapsed = f" (+{now - previous['at']:.2f}s)" if previous else ""
+    log.info("job %s -> %s%s", job, stage, elapsed)
 
 _segmenter_cache: Segmenter | HeuristicSegmenter | None = None
 
@@ -77,20 +94,24 @@ def get_segmenter() -> Segmenter | HeuristicSegmenter:
     global _segmenter_cache
     if _segmenter_cache is not None:
         return _segmenter_cache
-    bundle_dir = os.environ.get("NEUROSCOPE_BUNDLE_DIR", str(ROOT / "models"))
-    tta_passes = int(os.environ.get("NEUROSCOPE_TTA_PASSES", "2"))
     try:
-        _segmenter_cache = load_segmenter(bundle_dir, tta_passes=tta_passes)
+        _segmenter_cache = load_segmenter(str(SETTINGS.bundle_dir), tta_passes=SETTINGS.tta_passes)
+        log.info("loaded segmenter: %s", _segmenter_cache.info.name)
     except FileNotFoundError:
         _segmenter_cache = HeuristicSegmenter()
+        log.warning("no verified MONAI bundle found; falling back to %s", _segmenter_cache.info.name)
     return _segmenter_cache
 
 
 def cleanup() -> None:
     now = time.time()
+    removed = 0
     for p in JOBS.iterdir():
         if p.is_dir() and now - p.stat().st_mtime > RETENTION_SECONDS:
             shutil.rmtree(p, ignore_errors=True)
+            removed += 1
+    if removed:
+        log.info("cleanup: removed %d expired job director%s", removed, "y" if removed == 1 else "ies")
 
 
 @contextlib.asynccontextmanager
@@ -114,7 +135,7 @@ app = FastAPI(title="NeuroScope 3D local API", version=__version__, lifespan=lif
 # Vite dev server runs on a different origin than the API; loopback-only, no third party.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=os.environ.get("NEUROSCOPE_CORS_ORIGINS", "http://localhost:5173").split(","),
+    allow_origins=list(SETTINGS.cors_origins),
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
@@ -287,17 +308,29 @@ async def segment(
 ):
     # The job id is minted client-side (32 hex chars) so the browser can start
     # polling /status for this id before this request finishes uploading.
+    global _current_job
     if not _valid_job_id(job):
         raise HTTPException(400, "Invalid job id.")
     uploads = {"T1": T1, "T1Gd": T1Gd, "T2": T2, "FLAIR": FLAIR}
     if not busy.acquire(blocking=False):
-        raise HTTPException(409, "One study is already processing. Wait for it to finish.")
+        with _progress_lock:
+            current = PROGRESS.get(_current_job) if _current_job else None
+        detail = f" Current job {_current_job} is at: {current['message']}" if current else ""
+        log.info("job %s rejected: busy with %s", job, _current_job)
+        raise HTTPException(
+            409,
+            f"One study is already processing.{detail} Wait for it to finish, "
+            f"or poll /api/jobs/{_current_job}/status for its progress.",
+        )
 
+    _current_job = job
     out = JOBS / job
     if out.exists():
         busy.release()
+        _current_job = None
         raise HTTPException(409, "Job id already in use.")
     out.mkdir()
+    log.info("job %s: received, sequences=%s expert=%s", job, list(uploads), bool(expert))
     report_stage(job, "received")
     paths: dict[str, Path] = {}
     expert_path: Path | None = None
@@ -322,18 +355,22 @@ async def segment(
                 paths[name] = path
 
         metadata = await run_in_threadpool(process, job, paths, expert_path, out)
+        log.info("job %s: completed in %.1fs", job, metadata["runtime_seconds"])
         return {"job_id": job, "status": "completed", "metadata": metadata}
     except InputRejected as exc:
         shutil.rmtree(out, ignore_errors=True)
         with _progress_lock:
             PROGRESS.pop(job, None)
+        log.info("job %s: rejected — %s", job, "; ".join(e["message"] for e in exc.errors))
         return JSONResponse({"status": "rejected", "errors": exc.errors}, status_code=422)
     except Exception as exc:  # pragma: no cover - last-resort guard, never return a partial result
         shutil.rmtree(out, ignore_errors=True)
         with _progress_lock:
             PROGRESS.pop(job, None)
+        log.exception("job %s: processing failed", job)
         raise HTTPException(500, f"Processing failed; no result is available ({exc.__class__.__name__}).") from exc
     finally:
+        _current_job = None
         busy.release()
         for upload in [*uploads.values(), expert]:
             if upload:
