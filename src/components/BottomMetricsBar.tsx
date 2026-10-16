@@ -11,12 +11,14 @@ function Card({ children, className = '' }: { children: React.ReactNode; classNa
 }
 
 function RegionCard({ k }: { k: RegionKey }) {
-  const { report, study } = useStudy()
+  const { report, study, liveMetadata, mode } = useStudy()
   const { maskSource, setIsolated, isolated } = useStore()
   const r = report[k]
   const shown = maskSource === 'expert' ? r.expertML : r.predML
   const voxels = maskSource === 'expert' ? r.expertVoxels : r.predVoxels
   const [dx, dy, dz] = study.spacing
+  const conn = mode === 'live' ? liveMetadata?.connectivity?.[k] : null
+  const unc = mode === 'live' ? liveMetadata?.uncertainty?.[k] : null
 
   return (
     <button
@@ -48,6 +50,21 @@ function RegionCard({ k }: { k: RegionKey }) {
       <div className="truncate font-mono text-[9px] text-slate-600">
         {(r.fractionOfBrain * 100).toFixed(2)}% of brain volume
       </div>
+      {conn && conn.component_count > 0 && (
+        <div className="mt-1 truncate font-mono text-[9px] text-slate-500">
+          {conn.component_count === 1
+            ? '● single connected mass'
+            : `● ${conn.component_count} disconnected regions, largest ${(conn.largest_fraction * 100).toFixed(0)}%`}
+        </div>
+      )}
+      {unc && (
+        <div
+          className="truncate font-mono text-[9px] text-sky-500/70"
+          title="Flip-TTA probability standard deviation — a measured disagreement signal, not a calibrated confidence probability. Low σ does not guarantee correctness."
+        >
+          confidence: mean σ {unc.mean.toFixed(3)} · boundary max σ {unc.max.toFixed(3)}
+        </div>
+      )}
     </button>
   )
 }

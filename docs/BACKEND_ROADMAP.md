@@ -147,13 +147,23 @@ commercial, or prior-hackathon landscape combines live 3D+MPR rendering with
 real provenance/fail-safe panel, in one lightweight tool. Phase 1 and 2 make
 the baseline trustworthy; this is where trust becomes visible to the user.
 
-- **Uncertainty, surfaced on the mesh and slices, not just computed.** Cheapest
-  viable approach under the 2-minute budget: a small flip-based TTA ensemble
-  (not full MC-dropout — the research flagged that MC-dropout uncertainty
-  correlates weakly, r<0.05, with actual boundary error in at least one 2025
-  study, so the method matters, not just "some heatmap"). Surface it as a
-  boundary-confidence overlay, and say explicitly what it does and doesn't
-  mean.
+- ~~Uncertainty, surfaced on the mesh and slices, not just computed.~~
+  **Done.** A flip-based TTA ensemble (2 passes by default, not full
+  MC-dropout — the research flagged that MC-dropout uncertainty correlates
+  weakly, r<0.05, with actual boundary error in at least one 2025 study, so
+  the method matters, not just "some heatmap"). Surfaced as a toggleable
+  boundary-confidence heat-map overlay in the MPR views and a mean/max-σ
+  readout per region, both carrying an explicit "disagreement signal, not a
+  calibrated probability" caveat. Still open: the equivalent on the 3D mesh
+  itself (per-vertex uncertainty colouring) — today it's 2D-slice-only; and
+  a real check of whether 2-pass TTA's σ actually correlates with true
+  boundary error on real BraTS data, which the research's own caution about
+  naive uncertainty UIs makes worth doing before trusting the signal in a
+  live demo claim.
+- ~~Connected-component summary~~ ("is it one mass or two?", from the PS
+  story's own opening question) — **done**, via
+  `neuroscope.regions.connectivity_all`, surfaced per-region in the metrics
+  bar.
 - **Modality-ablation explain toggle.** Established as a research/robustness
   technique (missing-modality BraTS studies) but, per the research, never
   framed as an interactive clinician-facing UI control — this is genuine,

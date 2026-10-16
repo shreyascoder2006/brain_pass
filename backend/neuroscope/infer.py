@@ -4,6 +4,16 @@ The MONAI `brats_mri_segmentation` bundle takes four channels at 1 mm in the
 order T1Gd, T1, T2, FLAIR and returns three sigmoid channels in the order
 TC, WT, ET. Both orders are easy to get wrong and silently produce a plausible
 but meaningless mask, so they are named explicitly here rather than inferred.
+
+Inference runs as a small flip-based test-time-augmentation (TTA) ensemble,
+not a single forward pass: the same volume is segmented once unflipped and
+once per additional flip axis, each prediction is unflipped back to the
+original orientation, and the per-voxel mean becomes the (slightly more
+robust) final probability while the per-voxel standard deviation becomes a
+genuine, directly-measured uncertainty signal — not a proxy, not guessed.
+Kept small (2 passes by default) specifically to stay inside the PS's
+2-minute budget; see docs/BACKEND_ROADMAP.md for the measured timing this
+was tuned against.
 """
 
 from __future__ import annotations
@@ -19,6 +29,11 @@ INPUT_ORDER = ("T1Gd", "T1", "T2", "FLAIR")
 # Output channel order the bundle emits.
 OUTPUT_ORDER = ("TC", "WT", "ET")
 
+# Spatial flip axes tried as TTA passes, cycled through in order; `None` is the
+# unflipped pass and always runs first. Indices are into the unbatched (C,X,Y,Z)
+# tensor the model's probabilities come back as.
+TTA_FLIP_AXES: tuple[int | None, ...] = (None, 1, 2, 3)
+
 
 @dataclass
 class ModelInfo:
@@ -29,22 +44,36 @@ class ModelInfo:
     deterministic: bool
 
 
+@dataclass
+class Prediction:
+    """One study's segmentation, with uncertainty if more than one TTA pass ran."""
+
+    regions: dict[str, np.ndarray]      # WT/TC/ET boolean, nesting enforced
+    probability: dict[str, np.ndarray]  # WT/TC/ET float32 in [0, 1], mean across TTA passes
+    uncertainty: dict[str, np.ndarray]  # WT/TC/ET float32 in [0, 1], std across TTA passes
+    tta_passes: int
+
+
+def _nest(wt: np.ndarray, tc: np.ndarray, et: np.ndarray) -> dict[str, np.ndarray]:
+    tc = np.logical_or(tc, et)
+    wt = np.logical_or(wt, tc)
+    return {"WT": wt, "TC": tc, "ET": et}
+
+
 class Segmenter:
     """Wraps a loaded network plus the provenance needed for the report."""
 
-    def __init__(self, model, info: ModelInfo, roi=(192, 192, 128), overlap=0.5):
+    def __init__(self, model, info: ModelInfo, roi=(192, 192, 128), overlap=0.5, tta_passes: int = 2):
         self.model = model
         self.info = info
         self.roi = roi
         self.overlap = overlap
+        self.tta_passes = max(1, min(tta_passes, len(TTA_FLIP_AXES)))
 
     @torch.no_grad()
-    def __call__(self, channels: np.ndarray, threshold: float = 0.5) -> dict[str, np.ndarray]:
-        """channels: (4, X, Y, Z) float32 in INPUT_ORDER. Returns WT/TC/ET boolean."""
+    def _forward(self, x: torch.Tensor) -> torch.Tensor:
         from monai.inferers import sliding_window_inference
 
-        self.model.eval()
-        x = torch.from_numpy(channels).unsqueeze(0).float()
         logits = sliding_window_inference(
             inputs=x,
             roi_size=self.roi,
@@ -53,13 +82,37 @@ class Segmenter:
             overlap=self.overlap,
             mode="gaussian",
         )
-        probs = torch.sigmoid(logits)[0].cpu().numpy()
+        return torch.sigmoid(logits)[0]  # (3, X, Y, Z), TC/WT/ET order
 
-        out = {name: probs[i] >= threshold for i, name in enumerate(OUTPUT_ORDER)}
-        # Enforce the nesting the regions are defined by: ET subset of TC subset of WT.
-        out["TC"] = np.logical_or(out["TC"], out["ET"])
-        out["WT"] = np.logical_or(out["WT"], out["TC"])
-        return out
+    def predict(self, channels: np.ndarray, threshold: float = 0.5) -> Prediction:
+        """channels: (4, X, Y, Z) float32 in INPUT_ORDER."""
+        self.model.eval()
+        base = torch.from_numpy(channels).unsqueeze(0).float()
+
+        passes: list[torch.Tensor] = []
+        for axis in TTA_FLIP_AXES[: self.tta_passes]:
+            x = base if axis is None else torch.flip(base, dims=[axis + 1])  # +1: batch dim
+            probs = self._forward(x)
+            if axis is not None:
+                probs = torch.flip(probs, dims=[axis])  # unflip back to original orientation
+            passes.append(probs)
+
+        stacked = torch.stack(passes)  # (n, 3, X, Y, Z)
+        mean = stacked.mean(dim=0).cpu().numpy()
+        std = (stacked.std(dim=0) if len(passes) > 1 else torch.zeros_like(stacked[0])).cpu().numpy()
+
+        prob = {name: mean[i] for i, name in enumerate(OUTPUT_ORDER)}
+        unc = {name: std[i] for i, name in enumerate(OUTPUT_ORDER)}
+        regions = _nest(
+            wt=mean[OUTPUT_ORDER.index("WT")] >= threshold,
+            tc=mean[OUTPUT_ORDER.index("TC")] >= threshold,
+            et=mean[OUTPUT_ORDER.index("ET")] >= threshold,
+        )
+        return Prediction(regions=regions, probability=prob, uncertainty=unc, tta_passes=len(passes))
+
+    def __call__(self, channels: np.ndarray, threshold: float = 0.5) -> dict[str, np.ndarray]:
+        """Back-compat shim: regions only, single TTA pass regardless of self.tta_passes."""
+        return self.predict(channels, threshold).regions
 
 
 def normalise(volume: np.ndarray) -> np.ndarray:
@@ -85,7 +138,7 @@ def _bundle_root(bundle_dir: Path) -> Path | None:
     return None
 
 
-def load_segmenter(bundle_dir: str | Path) -> Segmenter:
+def load_segmenter(bundle_dir: str | Path, tta_passes: int = 2) -> Segmenter:
     """Load the pretrained SegResNet from a downloaded MONAI bundle.
 
     If a `model-lock.json` (written by `setup_model.py`) sits next to the
@@ -160,7 +213,7 @@ def load_segmenter(bundle_dir: str | Path) -> Segmenter:
         source="MONAI Model Zoo, trained on BraTS 2018",
         deterministic=True,
     )
-    return Segmenter(model, info)
+    return Segmenter(model, info, tta_passes=tta_passes)
 
 
 class HeuristicSegmenter:
@@ -180,7 +233,9 @@ class HeuristicSegmenter:
         deterministic=True,
     )
 
-    def __call__(self, channels: np.ndarray, threshold: float = 0.5) -> dict[str, np.ndarray]:
+    tta_passes = 1
+
+    def predict(self, channels: np.ndarray, threshold: float = 0.5) -> Prediction:
         from scipy import ndimage
 
         t1gd, _t1, _t2, flair = channels
@@ -198,5 +253,14 @@ class HeuristicSegmenter:
 
         et = np.logical_and(wt, t1gd > np.quantile(t1gd[brain], 0.985))
         tc = ndimage.binary_closing(np.logical_or(et, ndimage.binary_erosion(wt, iterations=3)), iterations=2)
-        tc = np.logical_or(tc, et)
-        return {"WT": wt, "TC": np.logical_and(tc, wt), "ET": np.logical_and(et, wt)}
+        tc = np.logical_and(np.logical_or(tc, et), wt)
+        et = np.logical_and(et, wt)
+
+        regions = _nest(wt=wt, tc=tc, et=et)
+        zeros = np.zeros_like(wt, dtype=np.float32)
+        probability = {k: v.astype(np.float32) for k, v in regions.items()}
+        uncertainty = {"WT": zeros, "TC": zeros, "ET": zeros}
+        return Prediction(regions=regions, probability=probability, uncertainty=uncertainty, tta_passes=1)
+
+    def __call__(self, channels: np.ndarray, threshold: float = 0.5) -> dict[str, np.ndarray]:
+        return self.predict(channels, threshold).regions

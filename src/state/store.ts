@@ -47,6 +47,10 @@ interface State {
   showOverlay: boolean
   toggleOverlay: () => void
 
+  /** 'segmentation' washes WT/TC/ET region colours; 'uncertainty' shows the flip-TTA confidence heatmap instead */
+  overlayMode: 'segmentation' | 'uncertainty'
+  setOverlayMode: (m: 'segmentation' | 'uncertainty') => void
+
   uploadOpen: boolean
   setUploadOpen: (open: boolean) => void
 }
@@ -90,6 +94,9 @@ export const useStore = create<State>((set) => ({
 
   showOverlay: true,
   toggleOverlay: () => set((s) => ({ showOverlay: !s.showOverlay })),
+
+  overlayMode: 'segmentation',
+  setOverlayMode: (overlayMode) => set({ overlayMode }),
 
   uploadOpen: false,
   setUploadOpen: (uploadOpen) => set({ uploadOpen }),

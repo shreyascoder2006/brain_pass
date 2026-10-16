@@ -17,6 +17,17 @@ export interface RegionMetric {
   expert_voxels: number
 }
 
+export interface UncertaintySummary {
+  mean: number
+  max: number
+}
+
+export interface ConnectivitySummary {
+  component_count: number
+  component_volumes_ml: number[]
+  largest_fraction: number
+}
+
 export interface Finding {
   code: string
   sequence: string | null
@@ -28,10 +39,17 @@ export interface SegmentMetadata {
   spacing: [number, number, number]
   affine: number[]
   regions: Record<'WT' | 'TC' | 'ET', RegionVolume>
+  connectivity: Record<'WT' | 'TC' | 'ET', ConnectivitySummary>
   expert: Record<'WT' | 'TC' | 'ET', RegionVolume> | null
   metrics: Record<'WT' | 'TC' | 'ET', RegionMetric> | null
   has_expert: boolean
-  model: { name: string; version: string; licence: string; source: string; deterministic: boolean }
+  has_uncertainty: boolean
+  uncertainty_scale: number
+  uncertainty: Record<'WT' | 'TC' | 'ET', UncertaintySummary> | null
+  model: {
+    name: string; version: string; licence: string; source: string
+    deterministic: boolean; tta_passes: number
+  }
   warnings: Finding[]
   input_sha256: Record<string, string>
   code_commit: string
@@ -128,6 +146,9 @@ export const fetchVolume = (jobId: string, seq: 'T1' | 'T1Gd' | 'T2' | 'FLAIR') 
   fetchBytes(`/api/jobs/${jobId}/volume/${seq}`)
 
 export const fetchLabels = (jobId: string) => fetchBytes(`/api/jobs/${jobId}/labels`)
+
+export const fetchUncertainty = (jobId: string, region: 'WT' | 'TC' | 'ET') =>
+  fetchBytes(`/api/jobs/${jobId}/uncertainty/${region}`)
 
 export const fetchExpertLabels = (jobId: string) => fetchBytes(`/api/jobs/${jobId}/expert-labels`)
 

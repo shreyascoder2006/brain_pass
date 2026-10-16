@@ -11,6 +11,25 @@ const CODE_COLOUR: Record<number, [number, number, number]> = {
   4: [232, 115, 142], // ET  -> rose  (enhancing)
 }
 
+/** Confidence heat ramp: blue (agreement) through cyan/yellow to red (disagreement). */
+const HEAT_STOPS: [number, number, number, number][] = [
+  [0.0, 37, 99, 235],
+  [0.33, 34, 211, 238],
+  [0.66, 250, 204, 21],
+  [1.0, 239, 68, 68],
+]
+function heatColour(t: number): [number, number, number] {
+  for (let i = 1; i < HEAT_STOPS.length; i++) {
+    const [t0, r0, g0, b0] = HEAT_STOPS[i - 1]
+    const [t1, r1, g1, b1] = HEAT_STOPS[i]
+    if (t <= t1) {
+      const f = (t - t0) / (t1 - t0 || 1)
+      return [r0 + (r1 - r0) * f, g0 + (g1 - g0) * f, b0 + (b1 - b0) * f]
+    }
+  }
+  return [239, 68, 68]
+}
+
 /** Lifts the MRI towards the bright window the reference renders at. */
 function window_(g: number): number {
   const v = 14 + g * 1.42
@@ -26,8 +45,8 @@ export default function MprPanel({
   headerRight?: ReactNode
   compact?: boolean
 }) {
-  const { study, crop } = useStudy()
-  const { voxel, setVoxel, sequence, maskSource, showOverlay, activePanel, setActivePanel } = useStore()
+  const { study, crop, uncertainty } = useStudy()
+  const { voxel, setVoxel, sequence, maskSource, showOverlay, overlayMode, activePanel, setActivePanel } = useStore()
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const offscreen = useRef<HTMLCanvasElement>(document.createElement('canvas'))
   const wrapRef = useRef<HTMLDivElement>(null)
@@ -109,6 +128,19 @@ export default function MprPanel({
         px[o] = g; px[o + 1] = g; px[o + 2] = g; px[o + 3] = 255
 
         if (!showOverlay) continue
+
+        if (overlayMode === 'uncertainty' && uncertainty) {
+          const u = Math.max(uncertainty.WT[p], uncertainty.TC[p], uncertainty.ET[p])
+          if (!u) continue
+          const t = u / 255
+          const c = heatColour(t)
+          const a = Math.min(0.85, 0.15 + t * 0.7)
+          px[o] = c[0] * a + px[o] * (1 - a)
+          px[o + 1] = c[1] * a + px[o + 1] * (1 - a)
+          px[o + 2] = c[2] * a + px[o + 2] * (1 - a)
+          continue
+        }
+
         const code = label[p]
         if (!code) continue
         const c = CODE_COLOUR[code]
@@ -150,7 +182,7 @@ export default function MprPanel({
     ctx.beginPath()
     ctx.arc(cx, cy, 3.2, 0, Math.PI * 2)
     ctx.stroke()
-  }, [size, study, seq, slice, voxel, def, label, showOverlay, layout, crop])
+  }, [size, study, seq, slice, voxel, def, label, showOverlay, overlayMode, uncertainty, layout, crop])
 
   const pick = useCallback((clientX: number, clientY: number) => {
     const canvas = canvasRef.current

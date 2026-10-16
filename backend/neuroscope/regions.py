@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy as np
+from scipy import ndimage
 
 NCR, ED, ET = 1, 2, 4
 REGION_CODES = {"WT": (NCR, ED, ET), "TC": (NCR, ET), "ET": (ET,)}
@@ -67,6 +68,40 @@ def compare(pred: np.ndarray, truth: np.ndarray, region: str) -> Metric:
 
 def score_all(pred: np.ndarray, truth: np.ndarray) -> dict[str, Metric]:
     return {r: compare(pred, truth, r) for r in REGION_ORDER}
+
+
+@dataclass
+class Connectivity:
+    """Answers the PS story's own opening question: "is it one mass or two?"."""
+
+    component_count: int
+    component_volumes_ml: list[float]  # largest first
+    largest_fraction: float  # largest component's share of the region's total voxels
+
+    def as_dict(self) -> dict:
+        return {
+            "component_count": self.component_count,
+            "component_volumes_ml": [round(v, 4) for v in self.component_volumes_ml],
+            "largest_fraction": round(self.largest_fraction, 4),
+        }
+
+
+def connectivity(mask: np.ndarray, spacing: tuple[float, float, float]) -> Connectivity:
+    """26-connected component analysis (diagonal touches count, since anisotropic
+    voxels can make a visually-connected mass look split under 6-connectivity alone)."""
+    structure = np.ones((3, 3, 3), dtype=int)
+    labelled, n = ndimage.label(mask, structure=structure)
+    if n == 0:
+        return Connectivity(0, [], 0.0)
+    voxel_counts = sorted((int(s) for s in ndimage.sum(mask, labelled, range(1, n + 1))), reverse=True)
+    total = sum(voxel_counts)
+    voxel_mm3 = float(np.prod(spacing))
+    volumes_ml = [count * voxel_mm3 / 1000.0 for count in voxel_counts]
+    return Connectivity(n, volumes_ml, (voxel_counts[0] / total) if total else 0.0)
+
+
+def connectivity_all(label: np.ndarray, spacing: tuple[float, float, float]) -> dict[str, dict]:
+    return {r: connectivity(region_mask(label, r), spacing).as_dict() for r in REGION_ORDER}
 
 
 def volumes_all(label: np.ndarray, spacing: tuple[float, float, float]) -> dict[str, dict]:

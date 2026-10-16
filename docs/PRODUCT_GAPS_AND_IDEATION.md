@@ -33,22 +33,29 @@ These are gaps the PS test matrix doesn't directly score but the source
 document's framing makes clearly necessary for the tool to be *useful*, not
 just *compliant*:
 
-1. **A plausible-looking mask is not evidence of accuracy** — the document's
-   sharpest point. Today, if no expert mask is uploaded (the common case —
-   a real user doesn't have one), the UI shows volumes with no accuracy
-   signal at all next to them. That's exactly the "two-dimensional cross-
-   section of a three-dimensional prediction" trust gap the document
-   describes, just at the whole-study level instead of the per-slice level.
-   **This is the single highest-value gap to close**, and it's what Phase 3
-   of the backend roadmap (uncertainty) exists to fix — a confidence signal
-   that doesn't depend on having ground truth.
+1. ~~A plausible-looking mask is not evidence of accuracy~~ — **closed.**
+   The document's sharpest point, and the single highest-value gap to close.
+   Inference now runs as a small flip-based TTA ensemble (2 passes by
+   default: identity + one flip, `neuroscope.infer.Segmenter.predict`); the
+   per-voxel standard deviation across passes is a real, measured
+   disagreement signal, not a proxy. It's transported to the browser as its
+   own set of binary volumes (`/api/jobs/{id}/uncertainty/{region}`) on the
+   same grid as everything else, shown as a toggleable heat-map overlay in
+   the MPR views (replacing the segmentation wash, not hidden behind it) and
+   as a mean/max-σ readout per region in the metrics bar — with an explicit
+   caveat attached everywhere it appears: this is disagreement under
+   augmentation, not a calibrated confidence probability, and low σ does not
+   guarantee correctness (the research flagged exactly this failure mode for
+   naive uncertainty UIs). Cost: roughly 2x inference time — measured at
+   ~60s/case on CPU with 2 passes, still well inside the 2-minute budget.
 
-2. **"Whether the model has missed tissue on slices you haven't inspected"**
-   — the document names this directly as unresolved by a 2D overlay. The 3D
-   mesh view already answers this better than any 2D-only tool, but there's
-   no *summary* signal for it yet (e.g., "WT is one connected region" vs
-   "WT is three disconnected fragments, inspect each" — a cheap connected-
-   components check, not a new model).
+2. ~~"Whether the model has missed tissue on slices you haven't inspected"~~
+   — **closed.** `neuroscope.regions.connectivity_all` runs 26-connected
+   component analysis on each region and reports component count, each
+   component's volume, and the largest component's share of the total —
+   directly answering the document's and the PS story's own opening
+   question ("is it one mass or two?"). Surfaced per-region in the metrics
+   bar ("single connected mass" vs "3 disconnected regions, largest 84%").
 
 3. **Evaluation is currently self-referential.** Dice/sensitivity only
    appear when the *user's own* expert mask is uploaded. The PS requires

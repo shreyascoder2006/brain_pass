@@ -29,17 +29,29 @@ def _to_uint8(data: np.ndarray) -> np.ndarray:
     return out
 
 
+# Theoretical max of a 2-sample probability std (one pass at 0, one at 1);
+# uncertainty voxels are clipped to this before scaling to uint8, so the
+# stored byte is always a fraction of a meaningful, documented ceiling rather
+# than an arbitrary per-case max that would make uncertainty incomparable
+# across studies.
+UNCERTAINTY_SCALE = 0.5
+
+
 def prepare_viewer(
     images: dict[str, nib.Nifti1Image],
     label: np.ndarray,
     reference: nib.Nifti1Image,
     out: Path,
     expert: np.ndarray | None = None,
+    uncertainty: dict[str, np.ndarray] | None = None,
 ) -> dict:
-    """Resample sequences + label(s) onto one shared display grid, write .bin payloads.
+    """Resample sequences + label(s) + uncertainty onto one shared display grid, write .bin payloads.
 
     `label` and `expert` are BraTS-coded (0/1/2/4) arrays already on `reference`'s grid.
-    Returns the geometry (dims/spacing/affine) the frontend needs to interpret them.
+    `uncertainty`, if given, is {"WT"/"TC"/"ET": float32 array in [0, UNCERTAINTY_SCALE]}
+    already on `reference`'s grid. Returns the geometry the frontend needs to interpret
+    all of the above, including the uncertainty scale so a uint8 byte can be read back
+    as an actual probability-std value rather than an opaque intensity.
     """
     out = Path(out)
     target = resample_to_output(reference, voxel_sizes=(DISPLAY_SPACING,) * 3, order=1)
@@ -58,10 +70,21 @@ def prepare_viewer(
         disp_expert = resample_from_to(expert_img, grid, order=0).get_fdata().astype(np.uint8)
         disp_expert.ravel(order="F").tofile(out / "expert-labels.bin")
 
+    has_uncertainty = False
+    if uncertainty is not None:
+        for region, arr in uncertainty.items():
+            img = nib.Nifti1Image(arr.astype(np.float32), reference.affine)
+            disp = resample_from_to(img, grid, order=1).get_fdata(dtype=np.float32)
+            scaled = np.clip(disp, 0, UNCERTAINTY_SCALE) / UNCERTAINTY_SCALE * 255
+            scaled.astype(np.uint8).ravel(order="F").tofile(out / f"uncertainty_{region}.bin")
+        has_uncertainty = True
+
     affine_flat = [float(x) for row in np.asarray(target.affine) for x in row]
     spacing = [float(z) for z in nib.affines.voxel_sizes(target.affine)]
     return {
         "dims": [int(n) for n in target.shape],
         "spacing": spacing,
         "affine": affine_flat,
+        "has_uncertainty": has_uncertainty,
+        "uncertainty_scale": UNCERTAINTY_SCALE,
     }

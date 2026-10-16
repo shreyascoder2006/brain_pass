@@ -28,7 +28,7 @@ from neuroscope import nifti_io as nio
 from neuroscope.infer import HeuristicSegmenter, load_segmenter, stack_channels
 from neuroscope.limits import MAX_INFERENCE_VOXELS, BudgetExceeded, check_voxel_budget
 from neuroscope.provenance import git_commit, sha256
-from neuroscope.regions import regions_to_label, volumes_all, score_all
+from neuroscope.regions import connectivity_all, regions_to_label, volumes_all, score_all
 from neuroscope.validate import SEQUENCES, validate_study
 
 
@@ -102,7 +102,7 @@ def run(args) -> int:
     }
 
     if args.model == "bundle":
-        segmenter = load_segmenter(args.bundle_dir)
+        segmenter = load_segmenter(args.bundle_dir, tta_passes=args.tta_passes)
     else:
         segmenter = HeuristicSegmenter()
         print(
@@ -112,15 +112,18 @@ def run(args) -> int:
         )
 
     info = segmenter.info
+    channels = stack_channels(arrays)
+    prediction = segmenter.predict(channels, threshold=args.threshold)
     report["model"] = {
         "name": info.name, "version": info.version, "licence": info.licence,
         "source": info.source, "deterministic": info.deterministic,
         "threshold": args.threshold, "seed": args.seed,
+        "tta_passes": prediction.tta_passes,
+        "tta_method": "flip-based ensemble; per-voxel probability std across passes is the uncertainty signal"
+                      if prediction.tta_passes > 1 else "single forward pass, no uncertainty estimate",
     }
 
-    channels = stack_channels(arrays)
-    regions = segmenter(channels, threshold=args.threshold)
-    label_work = regions_to_label(regions["WT"], regions["TC"], regions["ET"])
+    label_work = regions_to_label(prediction.regions["WT"], prediction.regions["TC"], prediction.regions["ET"])
 
     # Back onto the caller's grid, nearest-neighbour so codes stay 0/1/2/4.
     label_image = nib.Nifti1Image(label_work.astype(np.uint8), work_image.affine)
@@ -130,6 +133,15 @@ def run(args) -> int:
     out_path = nio.save_label(label_out, target_grid, args.out, reference=reference.image)
 
     report["volumes"] = volumes_all(label_out, reference.spacing)
+    report["connectivity"] = connectivity_all(label_out, reference.spacing)
+    if prediction.tta_passes > 1:
+        report["uncertainty"] = {
+            region: {
+                "mean": round(float(prediction.uncertainty[region].mean()), 4),
+                "max": round(float(prediction.uncertainty[region].max()), 4),
+            }
+            for region in ("WT", "TC", "ET")
+        }
     report["output"] = {"path": str(out_path), "codes": "1 NCR, 2 ED, 4 ET"}
 
     if args.label:
@@ -174,6 +186,8 @@ def main() -> int:
     p.add_argument("--spacing", type=float, default=1.0)
     p.add_argument("--threshold", type=float, default=0.5)
     p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--tta-passes", type=int, default=2,
+                    help="flip-based TTA passes (1 disables uncertainty; see docs/BACKEND_ROADMAP.md for timing)")
     args = p.parse_args()
 
     try:

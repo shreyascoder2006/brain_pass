@@ -35,7 +35,7 @@ from neuroscope import nifti_io as nio
 from neuroscope.infer import HeuristicSegmenter, Segmenter, load_segmenter, stack_channels
 from neuroscope.limits import MAX_INFERENCE_VOXELS, BudgetExceeded, check_voxel_budget
 from neuroscope.provenance import git_commit, sha256
-from neuroscope.regions import regions_to_label, score_all, volumes_all
+from neuroscope.regions import connectivity_all, regions_to_label, score_all, volumes_all
 from neuroscope.validate import SEQUENCES, validate_label, validate_study
 from server.viewer import prepare_viewer
 
@@ -78,8 +78,9 @@ def get_segmenter() -> Segmenter | HeuristicSegmenter:
     if _segmenter_cache is not None:
         return _segmenter_cache
     bundle_dir = os.environ.get("NEUROSCOPE_BUNDLE_DIR", str(ROOT / "models"))
+    tta_passes = int(os.environ.get("NEUROSCOPE_TTA_PASSES", "2"))
     try:
-        _segmenter_cache = load_segmenter(bundle_dir)
+        _segmenter_cache = load_segmenter(bundle_dir, tta_passes=tta_passes)
     except FileNotFoundError:
         _segmenter_cache = HeuristicSegmenter()
     return _segmenter_cache
@@ -172,14 +173,23 @@ def process(job: str, paths: dict[str, Path], expert_path: Path | None, out: Pat
     report_stage(job, "segmenting")
     segmenter = get_segmenter()
     channels = stack_channels(arrays)
-    regions_out = segmenter(channels, threshold=0.5)
-    label_work = regions_to_label(regions_out["WT"], regions_out["TC"], regions_out["ET"])
+    prediction = segmenter.predict(channels, threshold=0.5)
+    label_work = regions_to_label(prediction.regions["WT"], prediction.regions["TC"], prediction.regions["ET"])
 
     label_image = nib.Nifti1Image(label_work.astype(np.uint8), work_image.affine)
     on_input_grid = nio.resample_onto(label_image, target_grid, order=0)
     label_out = np.asanyarray(on_input_grid.dataobj).astype(np.uint8)
 
     nio.save_label(label_out, target_grid, out / "prediction.nii.gz", reference=reference.image)
+
+    uncertainty_on_input_grid = None
+    if prediction.tta_passes > 1:
+        uncertainty_on_input_grid = {}
+        for region in ("WT", "TC", "ET"):
+            unc_image = nib.Nifti1Image(prediction.uncertainty[region].astype(np.float32), work_image.affine)
+            uncertainty_on_input_grid[region] = np.asanyarray(
+                nio.resample_onto(unc_image, target_grid, order=1).dataobj, dtype=np.float32
+            )
 
     report_stage(job, "measuring")
     truth = None
@@ -198,11 +208,21 @@ def process(job: str, paths: dict[str, Path], expert_path: Path | None, out: Pat
         reference=reference.image,
         out=out,
         expert=truth,
+        uncertainty=uncertainty_on_input_grid,
     )
 
     report_stage(job, "reporting")
 
     info = segmenter.info
+    uncertainty_summary = None
+    if uncertainty_on_input_grid is not None:
+        uncertainty_summary = {
+            region: {
+                "mean": round(float(arr.mean()), 4),
+                "max": round(float(arr.max()), 4),
+            }
+            for region, arr in uncertainty_on_input_grid.items()
+        }
     metadata = {
         **geometry,
         "tool": "NeuroScope 3D",
@@ -210,12 +230,15 @@ def process(job: str, paths: dict[str, Path], expert_path: Path | None, out: Pat
         "disclaimer": DISCLAIMER,
         "description": "Suspected tumour regions predicted by the model. Estimated volumes.",
         "regions": volumes_all(label_out, reference.spacing),
+        "connectivity": connectivity_all(label_out, reference.spacing),
         "expert": volumes_all(truth, reference.spacing) if truth is not None else None,
         "metrics": {k: m.as_dict() for k, m in score_all(label_out, truth).items()} if truth is not None else None,
         "has_expert": truth is not None,
+        "uncertainty": uncertainty_summary,
         "model": {
             "name": info.name, "version": info.version, "licence": info.licence,
             "source": info.source, "deterministic": info.deterministic,
+            "tta_passes": prediction.tta_passes,
         },
         "warnings": _findings(validation.warnings) + ([{"code": "bad_expert_mask", "message": expert_warning, "sequence": "expert"}] if expert_warning else []),
         "input_sha256": {k: sha256(Path(p)) for k, p in paths.items()},
@@ -226,7 +249,9 @@ def process(job: str, paths: dict[str, Path], expert_path: Path | None, out: Pat
         "limitations": [
             "Research and teaching prototype only; not a diagnostic system.",
             "Skull-strip and brain-anatomy sanity checks are heuristics, not a validated classifier.",
-            "No voxel-level uncertainty estimate is produced.",
+            "Uncertainty is a flip-TTA probability std, a measured disagreement signal, not a calibrated"
+            " confidence probability — low uncertainty does not guarantee correctness."
+            if uncertainty_summary else "No voxel-level uncertainty estimate is produced (single-pass model).",
             "2-minute T4 budget not benchmarked on this machine.",
         ],
     }
@@ -350,6 +375,16 @@ def volume(job: str, seq: str):
 @app.get("/api/jobs/{job}/labels")
 def labels(job: str):
     return FileResponse(_jobdir(job) / "labels.bin", media_type="application/octet-stream")
+
+
+@app.get("/api/jobs/{job}/uncertainty/{region}")
+def uncertainty(job: str, region: str):
+    if region not in ("WT", "TC", "ET"):
+        raise HTTPException(404, "Region not found.")
+    p = _jobdir(job) / f"uncertainty_{region}.bin"
+    if not p.exists():
+        raise HTTPException(404, "No uncertainty estimate for this study (single-pass model run).")
+    return FileResponse(p, media_type="application/octet-stream")
 
 
 @app.get("/api/jobs/{job}/expert-labels")

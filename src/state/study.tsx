@@ -27,6 +27,9 @@ export interface StudyBundle {
   mode: 'demo' | 'live'
   jobId: string | null
   liveMetadata: SegmentMetadata | null
+  /** flip-TTA probability std per voxel, on `study`'s grid; null if not live or model ran single-pass */
+  uncertainty: Record<RegionKey, Uint8Array> | null
+  uncertaintyScale: number
 }
 
 const Ctx = createContext<StudyBundle | null>(null)
@@ -70,11 +73,16 @@ export function StudyProvider({ children, fallback }: { children: ReactNode; fal
       let mode: 'demo' | 'live' = 'demo'
       let jobId: string | null = null
       let liveMetadata: SegmentMetadata | null = null
+      let uncertainty: Record<RegionKey, Uint8Array> | null = null
+      let uncertaintyScale = 0.5
 
       if (live) {
         await step('Fetching segmented study from the local server')
         try {
-          study = await buildLiveStudy(live.jobId, live.metadata)
+          const built = await buildLiveStudy(live.jobId, live.metadata)
+          study = built.study
+          uncertainty = built.uncertainty
+          uncertaintyScale = built.uncertaintyScale
           mode = 'live'
           jobId = live.jobId
           liveMetadata = live.metadata
@@ -126,6 +134,7 @@ export function StudyProvider({ children, fallback }: { children: ReactNode; fal
         sha256,
         builtAt: new Date().toISOString(),
         mode, jobId, liveMetadata,
+        uncertainty, uncertaintyScale,
       })
     })()
 

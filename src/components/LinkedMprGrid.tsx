@@ -23,6 +23,7 @@ const ICONS = {
   compare: 'M12 3v18M7 7l-4 5 4 5M17 7l4 5-4 5',
   target: 'M12 21a9 9 0 100-18 9 9 0 000 18zm0-5a4 4 0 100-8 4 4 0 000 8z',
   reset: 'M3 12a9 9 0 109-9 9 9 0 00-6.4 2.7L3 8M3 3v5h5',
+  pulse: 'M3 12h4l2-7 4 14 2-7h6',
 }
 
 function ToolButton({
@@ -44,10 +45,11 @@ function ToolButton({
 }
 
 export default function LinkedMprGrid() {
-  const { study, meshes, inverseAffine } = useStudy()
+  const { study, meshes, inverseAffine, uncertainty } = useStudy()
   const {
     sequence, setSequence, showOverlay, toggleOverlay,
     maskSource, setMaskSource, setVoxel, isolated,
+    overlayMode, setOverlayMode,
   } = useStore()
   const [compareSeq, setCompareSeq] = useState<SequenceName>('FLAIR')
 
@@ -130,11 +132,22 @@ export default function LinkedMprGrid() {
               </button>
             ))}
           </div>
-          <div className="ml-auto flex items-center gap-3 font-mono text-[9.5px] text-slate-600">
-            <span className="flex items-center gap-1"><i className="inline-block h-2 w-2 rounded-[2px] bg-wt" />ED</span>
-            <span className="flex items-center gap-1"><i className="inline-block h-2 w-2 rounded-[2px] bg-tc" />NCR</span>
-            <span className="flex items-center gap-1"><i className="inline-block h-2 w-2 rounded-[2px] bg-et" />ET</span>
-          </div>
+          {overlayMode === 'uncertainty' && uncertainty ? (
+            <div className="ml-auto flex items-center gap-2 font-mono text-[9.5px] text-slate-600">
+              <span>model confidence</span>
+              <span
+                className="h-2 w-16 rounded-full"
+                style={{ background: 'linear-gradient(90deg, #2563eb, #22d3ee, #facc15, #ef4444)' }}
+              />
+              <span>low → high disagreement</span>
+            </div>
+          ) : (
+            <div className="ml-auto flex items-center gap-3 font-mono text-[9.5px] text-slate-600">
+              <span className="flex items-center gap-1"><i className="inline-block h-2 w-2 rounded-[2px] bg-wt" />ED</span>
+              <span className="flex items-center gap-1"><i className="inline-block h-2 w-2 rounded-[2px] bg-tc" />NCR</span>
+              <span className="flex items-center gap-1"><i className="inline-block h-2 w-2 rounded-[2px] bg-et" />ET</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -152,6 +165,14 @@ export default function LinkedMprGrid() {
           active={maskSource === 'expert'}
           onClick={() => setMaskSource(maskSource === 'predicted' ? 'expert' : 'predicted')}
         />
+        {uncertainty && (
+          <ToolButton
+            title={overlayMode === 'uncertainty' ? 'Show segmentation colours' : 'Show model confidence (flip-TTA uncertainty)'}
+            path={ICONS.pulse}
+            active={overlayMode === 'uncertainty'}
+            onClick={() => setOverlayMode(overlayMode === 'uncertainty' ? 'segmentation' : 'uncertainty')}
+          />
+        )}
         <ToolButton title="Jump to tumour centroid" path={ICONS.target} onClick={centreOnTumour} />
         <div className="my-1 h-px w-5 bg-edge" />
         <ToolButton title="Window / contrast" path={ICONS.contrast} onClick={() => {}} />
