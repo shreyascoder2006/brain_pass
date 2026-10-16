@@ -1,0 +1,30 @@
+# dependencies / build output
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Downloaded model weights — fetched with:
+#   python -m monai.bundle download --name brats_mri_segmentation --bundle_dir backend/models
+backend/models/
+
+# Generated test studies — recreate with: python backend/make_testcase.py
+backend/testdata/
+
+# Imaging data must never be committed
+*.nii
+*.nii.gz
+*.dcm
+
+# secrets / local env
+.env
+.env.*
+!.env.example
+
+.DS_Store
+Thumbs.db
