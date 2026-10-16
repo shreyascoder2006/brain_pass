@@ -27,8 +27,11 @@ import argparse
 import json
 import sys
 import time
-import urllib.request
 from pathlib import Path
+
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 SOURCE_URL = "https://msd-for-monai.s3-us-west-2.amazonaws.com/Task01_BrainTumour.tar"
 HEADER_SIZE = 512
@@ -39,10 +42,32 @@ class TarWalkError(RuntimeError):
     pass
 
 
+def _make_session() -> requests.Session:
+    """One persistent, keep-alive connection reused across thousands of tiny
+    header requests — this environment's network has shown transient TLS
+    handshake failures, and a fresh handshake per 512-byte request is both
+    slow and the most common place that bites. Retries absorb the transient
+    failures; keep-alive avoids re-handshaking in the first place."""
+    session = requests.Session()
+    retry = Retry(
+        total=6, backoff_factor=1.5,
+        status_forcelist=(429, 500, 502, 503, 504),
+        allowed_methods=("GET",),
+    )
+    adapter = HTTPAdapter(max_retries=retry, pool_maxsize=1)
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+    return session
+
+
+_SESSION = _make_session()
+
+
 def _range_get(url: str, start: int, length: int, timeout: int = 30) -> bytes:
-    req = urllib.request.Request(url, headers={"Range": f"bytes={start}-{start + length - 1}"})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        return resp.read()
+    headers = {"Range": f"bytes={start}-{start + length - 1}"}
+    resp = _SESSION.get(url, headers=headers, timeout=timeout)
+    resp.raise_for_status()
+    return resp.content
 
 
 def _parse_octal(field: bytes) -> int:
@@ -55,8 +80,21 @@ def _parse_octal(field: bytes) -> int:
         return 0
 
 
-def walk_tar_index(url: str, max_entries: int | None, progress_every: int = 40) -> dict[str, tuple[int, int]]:
-    """Return {member_name: (payload_offset, payload_size)} by reading only headers."""
+def walk_tar_index(
+    url: str,
+    max_entries: int | None,
+    progress_every: int = 20,
+    stop_when=None,
+    cache_path: Path | None = None,
+    cache_every: int = 100,
+) -> dict[str, tuple[int, int]]:
+    """Return {member_name: (payload_offset, payload_size)} by reading only headers.
+
+    `stop_when(index)` lets the caller end the walk as soon as it has enough
+    (e.g. N complete image+label pairs) instead of always reaching EOF.
+    `cache_path`, if given, is overwritten every `cache_every` entries so an
+    interrupted run doesn't lose everything already walked.
+    """
     index: dict[str, tuple[int, int]] = {}
     offset = 0
     count = 0
@@ -75,9 +113,18 @@ def walk_tar_index(url: str, max_entries: int | None, progress_every: int = 40) 
         count += 1
         if progress_every and count % progress_every == 0:
             elapsed = time.time() - started
-            print(f"  scanned {count} entries ({offset / 1e6:.0f} MB in) — {elapsed:.0f}s — at {name}")
+            print(f"  scanned {count} entries ({offset / 1e6:.0f} MB in) — {elapsed:.0f}s — at {name}", flush=True)
+        if cache_path and count % cache_every == 0:
+            cache_path.parent.mkdir(parents=True, exist_ok=True)
+            cache_path.write_text(json.dumps(index))
         if max_entries and count >= max_entries:
             break
+        if stop_when and stop_when(index):
+            print(f"  stopping early at {count} entries — enough found", flush=True)
+            break
+    if cache_path:
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        cache_path.write_text(json.dumps(index))
     return index
 
 
@@ -127,13 +174,14 @@ def main() -> int:
 
     pairs = _find_pairs(index, args.count)
     if len(pairs) < args.count:
-        print(f"Walking {args.url} table of contents (header-only, ~{HEADER_SIZE}B per entry)...")
-        index.update(walk_tar_index(args.url, args.max_index_entries or None))
+        print(f"Walking {args.url} table of contents (header-only, ~{HEADER_SIZE}B per entry)...", flush=True)
+        index.update(walk_tar_index(
+            args.url, args.max_index_entries or None,
+            stop_when=lambda idx: len(_find_pairs(idx, args.count)) >= args.count,
+            cache_path=cache_path,
+        ))
         pairs = _find_pairs(index, args.count)
-        if cache_path:
-            cache_path.parent.mkdir(parents=True, exist_ok=True)
-            cache_path.write_text(json.dumps(index, indent=2))
-            print(f"Cached {len(index)} entries to {cache_path}")
+        print(f"Indexed {len(index)} entries so far" + (f" (cached to {cache_path})" if cache_path else ""), flush=True)
 
     if not pairs:
         print("No complete image+label case pairs found in the scanned portion of the archive.", file=sys.stderr)
