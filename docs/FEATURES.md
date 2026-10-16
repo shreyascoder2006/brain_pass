@@ -55,6 +55,12 @@ Full breakdown of what NeuroScope 3D does today, organised by category. For the 
 - Every volume shows its formula inline: voxel count × (Δx × Δy × Δz) ÷ 1000, on the original acquisition grid.
 - Verified against the judges' own calibration case: a 20×20×20-voxel cube at 1×1×2mm reads exactly WT = 16.0 mL.
 
+### HD95 — boundary distance, not just overlap
+- Dice and sensitivity are volume-overlap metrics; a thin sliver of disagreement at a tumour's edge barely moves either. HD95 (95th-percentile Hausdorff distance) measures the same disagreement by physical distance, in mm, via a spacing-aware Euclidean distance transform between predicted and expert boundaries.
+- 95th percentile, not the plain maximum, so one stray outlier voxel doesn't dominate the number.
+- Explicitly `null`, not 0 or infinite, when either mask is empty — a boundary distance against nothing is undefined, and the platform says so rather than picking a convenient default.
+- Named explicitly in the PS's extra-credit list; available in the live report, the CLI's JSON output, and `evaluate.py`'s real-data accuracy run.
+
 ### Visible validation status
 - A pass/warning badge in the metrics bar reflects the real validation result for the current study, with specific warning text on hover.
 - **Quality Check Centre** — a floating, itemised report (not a single badge) of every real validator check a study was put through, so a pass is auditable, not just asserted.
@@ -107,4 +113,4 @@ Every item below is a documented PS requirement, measured by actually running th
 
 ## What's next
 
-See [`docs/IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) (data + model work) and [`docs/INTERACTIVE_PLATFORM_PLAN.md`](INTERACTIVE_PLATFORM_PLAN.md) (product surface, prioritised) for the live plan. Near-term: finish the real-data evaluation to 10 cases, HD95, a pre-inference preview, an interactive failure simulator, atlas-relative localisation, modality-ablation explanation, and DICOM ingestion.
+See [`docs/IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) (data + model work) and [`docs/INTERACTIVE_PLATFORM_PLAN.md`](INTERACTIVE_PLATFORM_PLAN.md) (product surface, prioritised) for the live plan. Near-term: finish the real-data evaluation to 10 cases, a pre-inference preview, an interactive failure simulator, atlas-relative localisation, modality-ablation explanation, and DICOM ingestion.

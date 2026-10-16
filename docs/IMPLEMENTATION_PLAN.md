@@ -65,7 +65,7 @@ Do not start Tier 2 until Phase 1a's data and split exist — training on an und
 
 ### Phase 3 — Missing accuracy features
 
-**3a. HD95** (95th-percentile Hausdorff distance) — add to `neuroscope/regions.py` alongside Dice/sensitivity; named explicitly in the PS's extra-credit list and needed for Phase 2's comparison table to be complete.
+**3a. HD95** (95th-percentile Hausdorff distance) — **done.** `neuroscope.regions.hd95()`/`hd95_all()`, a spacing-aware boundary-to-boundary distance via Euclidean distance transform, explicitly `null` (not 0 or inf) when either mask is empty. Wired into `predict.py`'s CLI report, `server/main.py`'s live metadata, and `evaluate.py`'s real-data accuracy run. Four tests with hand-computable answers, including an anisotropic-spacing check. See `docs/VERIFICATION.md` for current measured figures.
 
 **3b. Real `evaluate.py` run** against the Phase 1 held-out set, patient-split disclosed, replacing the "not yet measured" caveat in `docs/VERIFICATION.md` and `docs/MODEL_CARD.md` with actual numbers.
 

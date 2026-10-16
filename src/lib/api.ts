@@ -15,6 +15,9 @@ export interface RegionMetric {
   intersection_voxels: number
   predicted_voxels: number
   expert_voxels: number
+  /** 95th-percentile Hausdorff distance in mm; null when either mask is empty (undefined, not 0/inf) */
+  hd95_mm: number | null
+  hd95_definition: string
 }
 
 export interface UncertaintySummary {

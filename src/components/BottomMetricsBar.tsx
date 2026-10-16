@@ -87,6 +87,13 @@ export default function BottomMetricsBar() {
 
   const meanDice = REGIONS.reduce((a, d) => a + report[d.key].metric.dice, 0) / REGIONS.length
   const meanSens = REGIONS.reduce((a, d) => a + report[d.key].metric.sensitivity, 0) / REGIONS.length
+  // HD95 is server-computed only (a boundary distance transform, not cheap enough for
+  // the client's per-frame recompute) — available in live mode when an expert mask exists.
+  const hd95ByRegion = mode === 'live' ? liveMetadata?.metrics : null
+  const hd95Values = hd95ByRegion
+    ? REGIONS.map((d) => hd95ByRegion[d.key]?.hd95_mm).filter((v): v is number => v != null)
+    : []
+  const meanHd95 = hd95Values.length ? hd95Values.reduce((a, v) => a + v, 0) / hd95Values.length : null
 
   // The largest thing the model missed, across all three regions — the single
   // most useful place to send someone who wants to check the result by eye.
@@ -124,13 +131,15 @@ export default function BottomMetricsBar() {
         <Card>
           <div className="text-[11px] font-medium text-slate-300">Accuracy vs expert mask</div>
           {hasExpert ? (
-            <div className="mt-1 grid grid-cols-3 gap-x-2 font-mono text-[10px]">
+            <div className="mt-1 grid grid-cols-4 gap-x-2 font-mono text-[10px]">
               <span className="text-slate-600" />
               <span className="text-slate-500">Dice</span>
               <span className="text-slate-500">Sens.</span>
+              <span className="text-slate-500" title="95th-percentile Hausdorff distance — boundary disagreement in mm, not overlap. Null when either mask is empty.">HD95</span>
               {REGIONS.map((d) => (
                 <Fragmented key={d.key} colour={d.colour} short={d.short}
-                  dice={report[d.key].metric.dice} sens={report[d.key].metric.sensitivity} />
+                  dice={report[d.key].metric.dice} sens={report[d.key].metric.sensitivity}
+                  hd95={hd95ByRegion?.[d.key]?.hd95_mm} />
               ))}
               <span className="mt-0.5 border-t border-edge pt-0.5 text-slate-400">mean</span>
               <span className="mt-0.5 border-t border-edge pt-0.5 font-semibold text-emerald-400">
@@ -138,6 +147,9 @@ export default function BottomMetricsBar() {
               </span>
               <span className="mt-0.5 border-t border-edge pt-0.5 font-semibold text-emerald-400">
                 {meanSens.toFixed(3)}
+              </span>
+              <span className="mt-0.5 border-t border-edge pt-0.5 font-semibold text-emerald-400">
+                {meanHd95 != null ? `${meanHd95.toFixed(1)}mm` : '—'}
               </span>
             </div>
           ) : (
@@ -166,8 +178,8 @@ export default function BottomMetricsBar() {
   )
 }
 
-function Fragmented({ colour, short, dice, sens }: {
-  colour: string; short: string; dice: number; sens: number
+function Fragmented({ colour, short, dice, sens, hd95 }: {
+  colour: string; short: string; dice: number; sens: number; hd95?: number | null
 }) {
   return (
     <>
@@ -177,6 +189,7 @@ function Fragmented({ colour, short, dice, sens }: {
       </span>
       <span className="text-slate-200">{dice.toFixed(3)}</span>
       <span className="text-slate-200">{sens.toFixed(3)}</span>
+      <span className="text-slate-200">{hd95 != null ? `${hd95.toFixed(1)}mm` : '—'}</span>
     </>
   )
 }
