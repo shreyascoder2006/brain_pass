@@ -123,7 +123,7 @@ def _check_dataset_json(root: Path) -> dict:
     meta_path = root / "dataset.json"
     if not meta_path.exists():
         raise ConversionError(f"{meta_path} not found — is {root} a real Task01_BrainTumour extract?")
-    meta = json.loads(meta_path.read_text())
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
 
     modalities = {str(k): v for k, v in meta.get("modality", {}).items()}
     labels = {str(k): v for k, v in meta.get("labels", {}).items()}
@@ -229,7 +229,7 @@ def _write_manifest(path: Path, payload: dict) -> str:
     body = json.dumps(payload, indent=2, sort_keys=True)
     digest = __import__("hashlib").sha256(body.encode("utf-8")).hexdigest()
     payload = {**payload, "manifest_sha256": digest}
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True))
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
     return digest
 
 
@@ -299,7 +299,7 @@ def main() -> int:
                 "docs/IMPLEMENTATION_PLAN.md Phase 1a.",
     }
     split_path = out_dir / "decathlon_split.json"
-    split_path.write_text(json.dumps(split_payload, indent=2, sort_keys=True))
+    split_path.write_text(json.dumps(split_payload, indent=2, sort_keys=True), encoding="utf-8")
 
     manifest_payload = {
         "dataset": DATASET_NAME,

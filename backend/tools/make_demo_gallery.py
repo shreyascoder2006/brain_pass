@@ -156,7 +156,7 @@ def main() -> int:
         })
         print(f"  {case['id']}: {len(case['lesions'])} lesion(s) written to {case_dir}")
 
-    (out / "manifest.json").write_text(json.dumps(manifest, indent=2))
+    (out / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     print(f"\nWrote {len(manifest)} demo case(s) and {out / 'manifest.json'}")
     return 0
 

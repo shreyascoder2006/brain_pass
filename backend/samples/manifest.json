@@ -19,5 +19,33 @@
     "description": "A large whole-tumour extent with a small solid core \u2014 a high WT:TC ratio, unlike the compact baseline case. Produces a larger, more irregular uncertainty footprint at the (now much bigger) boundary.",
     "source": "synthetic",
     "has_expert": true
+  },
+  {
+    "id": "brats_206",
+    "label": "Real case \u2014 Decathlon BRATS_206",
+    "description": "A real, de-identified case from the Medical Segmentation Decathlon (Task01_BrainTumour, CC-BY-SA 4.0). One real case, not a held-out cohort \u2014 see docs/IMPLEMENTATION_PLAN.md Phase 1 for the real accuracy-evaluation plan.",
+    "source": "decathlon",
+    "has_expert": true
+  },
+  {
+    "id": "brats_306",
+    "label": "Real case \u2014 Decathlon BRATS_306",
+    "description": "A real, de-identified case from the Medical Segmentation Decathlon (Task01_BrainTumour, CC-BY-SA 4.0). One real case, not a held-out cohort \u2014 see docs/IMPLEMENTATION_PLAN.md Phase 1 for the real accuracy-evaluation plan.",
+    "source": "decathlon",
+    "has_expert": true
+  },
+  {
+    "id": "brats_449",
+    "label": "Real case \u2014 Decathlon BRATS_449",
+    "description": "A real, de-identified case from the Medical Segmentation Decathlon (Task01_BrainTumour, CC-BY-SA 4.0). One real case, not a held-out cohort \u2014 see docs/IMPLEMENTATION_PLAN.md Phase 1 for the real accuracy-evaluation plan.",
+    "source": "decathlon",
+    "has_expert": true
+  },
+  {
+    "id": "brats_457",
+    "label": "Real case \u2014 Decathlon BRATS_457",
+    "description": "A real, de-identified case from the Medical Segmentation Decathlon (Task01_BrainTumour, CC-BY-SA 4.0). One real case, not a held-out cohort \u2014 see docs/IMPLEMENTATION_PLAN.md Phase 1 for the real accuracy-evaluation plan.",
+    "source": "decathlon",
+    "has_expert": true
   }
 ]

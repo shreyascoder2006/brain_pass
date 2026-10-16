@@ -116,7 +116,7 @@ def walk_tar_index(
             print(f"  scanned {count} entries ({offset / 1e6:.0f} MB in) — {elapsed:.0f}s — at {name}", flush=True)
         if cache_path and count % cache_every == 0:
             cache_path.parent.mkdir(parents=True, exist_ok=True)
-            cache_path.write_text(json.dumps(index))
+            cache_path.write_text(json.dumps(index), encoding="utf-8")
         if max_entries and count >= max_entries:
             break
         if stop_when and stop_when(index):
@@ -124,7 +124,7 @@ def walk_tar_index(
             break
     if cache_path:
         cache_path.parent.mkdir(parents=True, exist_ok=True)
-        cache_path.write_text(json.dumps(index))
+        cache_path.write_text(json.dumps(index), encoding="utf-8")
     return index
 
 
@@ -143,7 +143,10 @@ def _find_pairs(index: dict[str, tuple[int, int]], count: int) -> list[tuple[str
 
 
 def _dataset_json_member(index: dict[str, tuple[int, int]]) -> str | None:
-    candidates = [k for k in index if k.endswith("dataset.json")]
+    # Exclude macOS AppleDouble sidecar entries ("._dataset.json") — their name
+    # also ends with "dataset.json" and, left unfiltered, can shadow the real
+    # file if the archive lists the sidecar first.
+    candidates = [k for k in index if k.endswith("dataset.json") and not Path(k).name.startswith("._")]
     return candidates[0] if candidates else None
 
 
@@ -170,7 +173,7 @@ def main() -> int:
     cache_path = Path(args.index_cache) if args.index_cache else None
     if cache_path and cache_path.exists():
         print(f"Loading cached index from {cache_path}")
-        index = {k: tuple(v) for k, v in json.loads(cache_path.read_text()).items()}
+        index = {k: tuple(v) for k, v in json.loads(cache_path.read_text(encoding="utf-8")).items()}
 
     pairs = _find_pairs(index, args.count)
     if len(pairs) < args.count:

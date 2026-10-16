@@ -1,0 +1,45 @@
+{
+  "case_count": 4,
+  "citation": "Antonelli et al., 'The Medical Segmentation Decathlon', Nature Communications 2022 \u2014 http://medicaldecathlon.com/",
+  "code_commit": "55624dc",
+  "dataset": "Medical Segmentation Decathlon \u2014 Task01_BrainTumour",
+  "dataset_json_tensor_image_size": "4D",
+  "generated_at": "2026-10-16T19:08:12.820476+00:00",
+  "held_out_count": 1,
+  "label_remap": {
+    "brats_meaning": {
+      "0": "background",
+      "1": "NCR",
+      "2": "ED",
+      "4": "ET"
+    },
+    "decathlon_code_to_brats_code": {
+      "0": 0,
+      "1": 2,
+      "2": 1,
+      "3": 4
+    },
+    "decathlon_meaning": {
+      "0": "background",
+      "1": "edema",
+      "2": "non-enhancing tumor",
+      "3": "enhancing tumour"
+    }
+  },
+  "licence": "CC-BY-SA 4.0",
+  "manifest_sha256": "62970a0db5a1a0b3b3d538390eb81473e5708689ae954c05e2213f043a72c4cd",
+  "modality_order": {
+    "0": "FLAIR",
+    "1": "T1w",
+    "2": "t1gd",
+    "3": "T2w"
+  },
+  "note": "A conversion + split manifest, not an accuracy claim. Run backend/evaluate.py against this split's held-out cases to produce one.",
+  "output_root": "data\\decathlon",
+  "pretraining_overlap": "Not independently verifiable from this checkpoint's public release \u2014 the MONAI brats_mri_segmentation bundle was trained on BraTS 2018, and whether specific Decathlon case IDs overlap that training set cannot be confirmed from the information published with the checkpoint. State this limitation; do not claim a clean split that can't be proven.",
+  "skipped": [],
+  "source_md5": "240a19d752f0d9e9101544901065d872",
+  "source_url": "https://msd-for-monai.s3-us-west-2.amazonaws.com/Task01_BrainTumour.tar",
+  "split_file": "decathlon_split.json",
+  "train_count": 3
+}

@@ -1,0 +1,13 @@
+{
+  "held_out": [
+    "BRATS_206"
+  ],
+  "note": "Patient-level split over Decathlon Task01_BrainTumour case IDs. Read from this file, never re-derived informally \u2014 see docs/IMPLEMENTATION_PLAN.md Phase 1a.",
+  "seed": 42,
+  "train": [
+    "BRATS_306",
+    "BRATS_449",
+    "BRATS_457"
+  ],
+  "train_fraction": 0.8
+}
