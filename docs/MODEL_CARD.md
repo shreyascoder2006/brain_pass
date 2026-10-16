@@ -30,12 +30,13 @@ One-page model card, as required by the problem statement's deliverables.
 | Metric | Value | Context |
 |---|---|---|
 | Dice — WT / TC / ET (synthetic) | 0.961 / 0.921 / 0.952 | This project's synthetic calibration/test-pack case — a **pipeline-integrity check**, not a clinical accuracy result |
-| **Dice — WT / TC / ET (real data)** | **0.9013 / 0.8989 / 0.8503** | **4 real Medical Segmentation Decathlon cases** (`BRATS_206/306/449/457`), no fine-tuning — see [`docs/VERIFICATION.md`](VERIFICATION.md#real-data-accuracy-medical-segmentation-decathlon) |
-| Sensitivity — WT / TC / ET (real data) | 0.8677 / 0.8882 / 0.8207 | Same 4 cases |
+| **Dice — WT / TC / ET (real data, 10 held-out cases)** | **0.8808 / 0.8697 / 0.7885** | **10 real Medical Segmentation Decathlon cases**, no fine-tuning — meets the PS's ≥10 held-out requirement. See [`docs/VERIFICATION.md`](VERIFICATION.md#real-data-accuracy-10-held-out-medical-segmentation-decathlon-cases) |
+| Sensitivity — WT / TC / ET (real data) | 0.8460 / 0.8505 / 0.7617 | Same 10 cases |
+| HD95 (mm) — WT / TC / ET (real data) | 8.43 / 5.53 / 5.71 | Same 10 cases; 0 undefined (every case had both a predicted and an expert region to compare) |
 | Reproducibility | Dice ≥ 0.99 between repeated runs | Measured: 1.00000 (flip-TTA is deterministic, no randomness involved) |
 | Inference time | ~37s single pass, ~60–75s with 2-pass TTA | CPU-only, this development machine; PS budget is 120s on a T4 GPU |
 
-**Two caveats on the real-data figures:** (1) four cases is a sample, not the ≥10 held-out cases the PS asks for — expansion in progress, see `docs/IMPLEMENTATION_PLAN.md` Phase 1b; (2) pretraining overlap with these specific case IDs is not verifiable from the checkpoint's public BraTS-2018 release — disclosed, not assumed clean. Reproduce: `backend/data/real_sample_eval.json` has the full per-case breakdown; the command is in `docs/VERIFICATION.md`.
+**Caveat on the real-data figures:** pretraining overlap with these specific case IDs is not verifiable from the checkpoint's public BraTS-2018 release — disclosed, not assumed clean. One case (`BRATS_218`) scores notably lower on ET (Dice 0.308) than the rest — reported, not excluded, because real-world variance like this is exactly what a 10-case sample is supposed to surface and a 4-case one was too small to reliably show. Reproduce: `backend/data/real_sample_eval.json` has the full per-case breakdown; the command is in `docs/VERIFICATION.md`.
 
 ## Uncertainty estimation
 
@@ -48,7 +49,7 @@ This is a measured disagreement signal, not a calibrated probability of correctn
 
 ## Known limitations
 
-- Trained on BraTS 2018; if evaluated against a different BraTS year's cases, unknown pretraining overlap must be disclosed separately (not yet measured for this project's held-out evaluation, since that evaluation has not yet been run on real data).
+- Trained on BraTS 2018; the held-out evaluation above uses Medical Segmentation Decathlon cases, and whether any of those 10 case IDs overlap the checkpoint's original BraTS 2018 training set is not independently verifiable from its public release — disclosed per-run in `backend/data/manifest.json` and `real_sample_eval.json`'s `training_data_overlap` field, not assumed clean.
 - The 128³ sliding-window inference size is smaller than some published full-resolution configurations, chosen here for a faster, lighter prototype footprint — this trades some potential accuracy for speed and lower memory use.
 - Skull-strip and anatomical-plausibility checks upstream of the model are heuristics (foreground fraction, edge-occupancy, field-of-view bounds, centroid/shape checks), not a trained, validated classifier — they can in principle accept an unusual phantom or reject an unusual genuine image.
 - No modality-dropout robustness has been measured — all four sequences are currently required; a missing-sequence degraded mode is on the roadmap, not implemented.

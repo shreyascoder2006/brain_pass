@@ -9,9 +9,8 @@ This is the actionable, phased plan for the next stage of work: moving from "one
 ## 0. Where this plan starts from (verified facts, not assumptions)
 
 - One real, checkpoint-verified model is live: MONAI `brats_mri_segmentation` (SegResNet, BraTS-2018, Apache-2.0). 17/17 judge pipeline tests pass with it.
-- All accuracy numbers produced so far (Dice 0.96/0.92/0.95) are from this project's **own synthetic calibration case** — a pipeline-integrity check, not a clinical accuracy measurement. This is explicitly flagged in `docs/VERIFICATION.md` and must stay flagged until Phase 1 below closes it.
-- No real BraTS or Decathlon data exists in this repo or environment yet. This is the single biggest gap blocking everything else in this plan.
-- This development environment is **CPU-only, no GPU**. That constrains what's realistically achievable here directly vs. what needs a separate GPU environment (cloud, or the organiser's T4).
+- The synthetic calibration Dice (0.96/0.92/0.95) is still a pipeline-integrity check, not a clinical accuracy measurement — but it's no longer the only number available: 10 real, held-out Medical Segmentation Decathlon cases are now scored (WT 0.8808 / TC 0.8697 / ET 0.7885 Dice, plus sensitivity and HD95). See Phase 1a/3b below and `docs/VERIFICATION.md`.
+- This development environment is **CPU-only, no GPU**. That constrains what's realistically achievable here directly vs. what needs a separate GPU environment (cloud, or the organiser's T4) — this still blocks Phase 2's Tier 2 (training/fine-tuning additional architectures).
 
 ## 1. Research findings that shape this plan (checked before writing it, not assumed)
 
@@ -30,13 +29,15 @@ A quick check before planning the multi-model phase turned up something importan
 
 ### Phase 1 — Real data acquisition (blocks everything else; start here)
 
-**1a. Medical Segmentation Decathlon, Task01_BrainTumour — the near-term real dataset.**
+**1a. Medical Segmentation Decathlon, Task01_BrainTumour — the near-term real dataset — done.**
 No registration gate, CC-BY-SA 4.0, directly downloadable (MONAI-hosted tar, or via `monai.apps.DecathlonDataset(download=True)`). 750 4D volumes, 484 with labels.
 
-Work required:
-- A conversion script (`backend/tools/convert_decathlon.py`) that splits each 4D NIfTI into four separate per-modality files matching this pipeline's expected input, and remaps Decathlon's label codes to BraTS 2021 codes (1 NCR, 2 ED, 4 ET) — the two code systems differ and this is explicitly flagged as a gotcha in the dataset's own `dataset.json`; get this mapping right and tested before anything downstream trusts it.
-- A patient-level train/held-out split (suggest 80/20 or similar), with case IDs logged to `backend/data/decathlon_split.json` — never re-derived informally, always read from this file.
-- A data manifest (`backend/data/manifest.json`) recording dataset name, licence, case count, split, and the sha256 of the manifest itself, so every downstream number can cite exactly which data produced it.
+Closed, all three pieces:
+- `backend/tools/convert_decathlon.py` splits each 4D NIfTI into four separate per-modality files matching this pipeline's expected input, and remaps Decathlon's label codes to BraTS codes (1 NCR, 2 ED, 4 ET).
+- A patient-level train/held-out split is logged to `backend/data/decathlon_split.json` (8 train / 2 held-out within the fetched 10-case sample) — read from this file, never re-derived informally.
+- `backend/data/manifest.json` records dataset name, licence, case count and split.
+
+10 cases are now fetched and converted (`tools/fetch_decathlon_sample.py`, Range-request trick — see Section 0), closing the PS's ≥10 held-out requirement; see Phase 3b below and `docs/VERIFICATION.md`.
 
 **1b. BraTS 2021 (the PS's own named dataset) — pursue in parallel, human-gated.**
 Access requires registration (TCIA or Synapse) and accepting a data use agreement — **this step needs a human to do it**, not something to script. Flag it, don't block on it: once obtained, BraTS 2021 supersedes the Decathlon-derived held-out set as the authoritative one, since it's what the PS actually names and what the organiser's own baseline will be measured on.
@@ -57,7 +58,7 @@ Access requires registration (TCIA or Synapse) and accepting a data use agreemen
 
 Do not start Tier 2 until Phase 1a's data and split exist — training on an undocumented, unsplit dataset produces numbers nobody can trust or reproduce.
 
-**2c. `backend/benchmark_models.py`.** Runs every registered, available adapter against the *same* held-out set from Phase 1, records per model: Dice (WT/TC/ET), sensitivity, HD95 (once Phase 3a lands), inference time, peak memory, licence, and writes results to `backend/benchmark_results.json`.
+**2c. `backend/benchmark_models.py`.** Runs every registered, available adapter against the *same* held-out set from Phase 1, records per model: Dice (WT/TC/ET), sensitivity, HD95 (`neuroscope.regions.hd95_all`, done — Phase 3a), inference time, peak memory, licence, and writes results to `backend/benchmark_results.json`.
 
 **2d. `docs/MODEL_BENCHMARK.md`.** The comparison table plus a written decision: which model becomes the default, and why — accuracy, speed (against the 2-minute budget), licence, and maintenance burden are all legitimate factors, and the reasoning should be visible, not just the winner.
 
@@ -67,7 +68,7 @@ Do not start Tier 2 until Phase 1a's data and split exist — training on an und
 
 **3a. HD95** (95th-percentile Hausdorff distance) — **done.** `neuroscope.regions.hd95()`/`hd95_all()`, a spacing-aware boundary-to-boundary distance via Euclidean distance transform, explicitly `null` (not 0 or inf) when either mask is empty. Wired into `predict.py`'s CLI report, `server/main.py`'s live metadata, and `evaluate.py`'s real-data accuracy run. Four tests with hand-computable answers, including an anisotropic-spacing check. See `docs/VERIFICATION.md` for current measured figures.
 
-**3b. Real `evaluate.py` run** against the Phase 1 held-out set, patient-split disclosed, replacing the "not yet measured" caveat in `docs/VERIFICATION.md` and `docs/MODEL_CARD.md` with actual numbers.
+**3b. Real `evaluate.py` run — done.** 10 held-out Decathlon cases scored (`backend/data/real_sample_eval.json`), patient-split disclosed via `decathlon_split.json`: WT Dice 0.8808 / TC 0.8697 / ET 0.7885, with HD95 and sensitivity alongside. Closes the PS's ≥10-case mandatory requirement. `docs/VERIFICATION.md` and `docs/MODEL_CARD.md` carry the actual numbers in place of the old "not yet measured" caveat; the pretraining-overlap caveat itself stays, since it's a real, unresolved limitation of the checkpoint's public release, not a placeholder.
 
 **3c. Uncertainty-calibration check.** Now that real labelled held-out data exists: does the flip-TTA σ signal actually correlate with real boundary error? This directly answers the caveat already flagged in `docs/ARCHITECTURE.md` ("naive uncertainty signals can correlate only weakly with true error") — measure it rather than continuing to caveat it abstractly.
 
@@ -98,10 +99,12 @@ Phase 1 is the hard dependency everything else sits on. Tier 1 of Phase 2 (SegRe
 
 ## 4. Immediate next actions (what to actually start on)
 
-1. **`backend/tools/convert_decathlon.py`** — download Task01_BrainTumour, split 4D → per-modality NIfTI, remap label codes, write the manifest + split files. This is the one piece of this whole plan that's unblocked, needs no registration, no GPU, and no human approval step — start here.
-2. **`backend/neuroscope/model_base.py`** — formalize the adapter Protocol. Mechanical refactor of what `infer.py` already does; low risk, unblocks Phase 2's harness.
-3. **Decide on a GPU environment** for Phase 2 Tier 2 / Phase 3b's real evaluation run — this is a decision only the user can make (cloud budget, a teammate's machine, waiting for organiser hardware) and should happen in parallel with steps 1–2, not block them.
-4. **Start the BraTS 2021 registration** (Phase 1b) now, in parallel — it's slow (account approval, DUA) and should not be the thing blocking the rest of this plan at the last minute.
+1. ~~`backend/tools/convert_decathlon.py`~~ — **done.** 10 cases fetched, converted, split, and manifested.
+2. ~~`backend/neuroscope/model_base.py`~~ — **done.** Formal adapter `Protocol`, `backend/neuroscope/model_base.py`.
+3. ~~Real `evaluate.py` run (Phase 3b) / HD95 (Phase 3a)~~ — **done.** Both landed; see `docs/VERIFICATION.md`.
+4. **Decide on a GPU environment** for Phase 2 Tier 2 (multi-model training/fine-tuning) — this is a decision only the user can make (cloud budget, a teammate's machine, waiting for organiser hardware) and remains the actual blocker on Phase 2.
+5. **Start the BraTS 2021 registration** (Phase 1b) now, in parallel, if not already underway — it's slow (account approval, DUA) and should not be the thing blocking the rest of this plan at the last minute.
+6. **Uncertainty-calibration check (Phase 3c)** — now unblocked by real labelled held-out data; the next unstarted item that needs no GPU and no human-gated step.
 
 ## 5. Beyond the user's original ask — further ideation
 

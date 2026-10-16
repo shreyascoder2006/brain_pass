@@ -7,41 +7,55 @@
     "source": "MONAI Model Zoo, trained on BraTS 2018",
     "deterministic": true
   },
-  "cases_scored": 4,
+  "cases_scored": 10,
   "case_ids": [
     "BRATS_206",
+    "BRATS_214",
+    "BRATS_218",
+    "BRATS_265",
     "BRATS_306",
+    "BRATS_318",
+    "BRATS_365",
+    "BRATS_434",
     "BRATS_449",
     "BRATS_457"
   ],
   "skipped": [],
   "split": "held-out by patient; one folder per patient, no patient appears twice",
-  "training_data_overlap": "Not independently verifiable from the MONAI brats_mri_segmentation checkpoint's public release (trained on BraTS 2018); these Decathlon Task01_BrainTumour cases may or may not overlap that training set.",
+  "training_data_overlap": "Not independently verifiable from the MONAI brats_mri_segmentation checkpoint's public release (trained on BraTS 2018); these Medical Segmentation Decathlon Task01_BrainTumour cases may or may not overlap that training set.",
   "summary": {
     "WT": {
-      "mean_dice": 0.9013,
-      "mean_sensitivity": 0.8677
+      "mean_dice": 0.8808,
+      "mean_sensitivity": 0.846,
+      "mean_hd95_mm": 8.433,
+      "hd95_undefined_cases": 0
     },
     "TC": {
-      "mean_dice": 0.8989,
-      "mean_sensitivity": 0.8882
+      "mean_dice": 0.8697,
+      "mean_sensitivity": 0.8505,
+      "mean_hd95_mm": 5.525,
+      "hd95_undefined_cases": 0
     },
     "ET": {
-      "mean_dice": 0.8503,
-      "mean_sensitivity": 0.8207
+      "mean_dice": 0.7885,
+      "mean_sensitivity": 0.7617,
+      "mean_hd95_mm": 5.709,
+      "hd95_undefined_cases": 0
     }
   },
   "per_case": [
     {
       "case": "BRATS_206",
-      "seconds": 73.6,
+      "seconds": 120.7,
       "WT": {
         "region": "WT",
         "dice": 0.8801,
         "sensitivity": 0.7936,
         "intersection_voxels": 211850,
         "predicted_voxels": 214506,
-        "expert_voxels": 266936
+        "expert_voxels": 266936,
+        "hd95_mm": 4.123,
+        "hd95_definition": "95th percentile of the symmetric boundary-to-boundary distance: every predicted-boundary voxel's distance to the nearest expert-boundary voxel, and every expert-boundary voxel's distance to the nearest predicted-boundary voxel, combined, via a spacing-aware Euclidean distance transform. Using the 95th percentile rather than the maximum (the plain Hausdorff distance) keeps one stray outlier voxel from dominating the number. Null, not zero or infinite, when either region is empty \u2014 a boundary distance against nothing is undefined, not a perfect or worst-case score."
       },
       "TC": {
         "region": "TC",
@@ -49,7 +63,9 @@
         "sensitivity": 0.9088,
         "intersection_voxels": 46204,
         "predicted_voxels": 50429,
-        "expert_voxels": 50841
+        "expert_voxels": 50841,
+        "hd95_mm": 4.123,
+        "hd95_definition": "95th percentile of the symmetric boundary-to-boundary distance: every predicted-boundary voxel's distance to the nearest expert-boundary voxel, and every expert-boundary voxel's distance to the nearest predicted-boundary voxel, combined, via a spacing-aware Euclidean distance transform. Using the 95th percentile rather than the maximum (the plain Hausdorff distance) keeps one stray outlier voxel from dominating the number. Null, not zero or infinite, when either region is empty \u2014 a boundary distance against nothing is undefined, not a perfect or worst-case score."
       },
       "ET": {
         "region": "ET",
@@ -57,19 +73,125 @@
         "sensitivity": 0.9391,
         "intersection_voxels": 24168,
         "predicted_voxels": 28264,
-        "expert_voxels": 25735
+        "expert_voxels": 25735,
+        "hd95_mm": 1.414,
+        "hd95_definition": "95th percentile of the symmetric boundary-to-boundary distance: every predicted-boundary voxel's distance to the nearest expert-boundary voxel, and every expert-boundary voxel's distance to the nearest predicted-boundary voxel, combined, via a spacing-aware Euclidean distance transform. Using the 95th percentile rather than the maximum (the plain Hausdorff distance) keeps one stray outlier voxel from dominating the number. Null, not zero or infinite, when either region is empty \u2014 a boundary distance against nothing is undefined, not a perfect or worst-case score."
+      }
+    },
+    {
+      "case": "BRATS_214",
+      "seconds": 86.0,
+      "WT": {
+        "region": "WT",
+        "dice": 0.6469,
+        "sensitivity": 0.5212,
+        "intersection_voxels": 31681,
+        "predicted_voxels": 37167,
+        "expert_voxels": 60786,
+        "hd95_mm": 27.092,
+        "hd95_definition": "95th percentile of the symmetric boundary-to-boundary distance: every predicted-boundary voxel's distance to the nearest expert-boundary voxel, and every expert-boundary voxel's distance to the nearest predicted-boundary voxel, combined, via a spacing-aware Euclidean distance transform. Using the 95th percentile rather than the maximum (the plain Hausdorff distance) keeps one stray outlier voxel from dominating the number. Null, not zero or infinite, when either region is empty \u2014 a boundary distance against nothing is undefined, not a perfect or worst-case score."
+      },
+      "TC": {
+        "region": "TC",
+        "dice": 0.7912,
+        "sensitivity": 0.8407,
+        "intersection_voxels": 13649,
+        "predicted_voxels": 18267,
+        "expert_voxels": 16236,
+        "hd95_mm": 4.359,
+        "hd95_definition": "95th percentile of the symmetric boundary-to-boundary distance: every predicted-boundary voxel's distance to the nearest expert-boundary voxel, and every expert-boundary voxel's distance to the nearest predicted-boundary voxel, combined, via a spacing-aware Euclidean distance transform. Using the 95th percentile rather than the maximum (the plain Hausdorff distance) keeps one stray outlier voxel from dominating the number. Null, not zero or infinite, when either region is empty \u2014 a boundary distance against nothing is undefined, not a perfect or worst-case score."
+      },
+      "ET": {
+        "region": "ET",
+        "dice": 0.7294,
+        "sensitivity": 0.8992,
+        "intersection_voxels": 8873,
+        "predicted_voxels": 14461,
+        "expert_voxels": 9868,
+        "hd95_mm": 3.742,
+        "hd95_definition": "95th percentile of the symmetric boundary-to-boundary distance: every predicted-boundary voxel's distance to the nearest expert-boundary voxel, and every expert-boundary voxel's distance to the nearest predicted-boundary voxel, combined, via a spacing-aware Euclidean distance transform. Using the 95th percentile rather than the maximum (the plain Hausdorff distance) keeps one stray outlier voxel from dominating the number. Null, not zero or infinite, when either region is empty \u2014 a boundary distance against nothing is undefined, not a perfect or worst-case score."
+      }
+    },
+    {
+      "case": "BRATS_218",
+      "seconds": 81.7,
+      "WT": {
+        "region": "WT",
+        "dice": 0.939,
+        "sensitivity": 0.9865,
+        "intersection_voxels": 136922,
+        "predicted_voxels": 152826,
+        "expert_voxels": 138799,
+        "hd95_mm": 4.123,
+        "hd95_definition": "95th percentile of the symmetric boundary-to-boundary distance: every predicted-boundary voxel's distance to the nearest expert-boundary voxel, and every expert-boundary voxel's distance to the nearest predicted-boundary voxel, combined, via a spacing-aware Euclidean distance transform. Using the 95th percentile rather than the maximum (the plain Hausdorff distance) keeps one stray outlier voxel from dominating the number. Null, not zero or infinite, when either region is empty \u2014 a boundary distance against nothing is undefined, not a perfect or worst-case score."
+      },
+      "TC": {
+        "region": "TC",
+        "dice": 0.8772,
+        "sensitivity": 0.9136,
+        "intersection_voxels": 96191,
+        "predicted_voxels": 114021,
+        "expert_voxels": 105284,
+        "hd95_mm": 7.0,
+        "hd95_definition": "95th percentile of the symmetric boundary-to-boundary distance: every predicted-boundary voxel's distance to the nearest expert-boundary voxel, and every expert-boundary voxel's distance to the nearest predicted-boundary voxel, combined, via a spacing-aware Euclidean distance transform. Using the 95th percentile rather than the maximum (the plain Hausdorff distance) keeps one stray outlier voxel from dominating the number. Null, not zero or infinite, when either region is empty \u2014 a boundary distance against nothing is undefined, not a perfect or worst-case score."
+      },
+      "ET": {
+        "region": "ET",
+        "dice": 0.3083,
+        "sensitivity": 0.2348,
+        "intersection_voxels": 966,
+        "predicted_voxels": 2153,
+        "expert_voxels": 4114,
+        "hd95_mm": 29.678,
+        "hd95_definition": "95th percentile of the symmetric boundary-to-boundary distance: every predicted-boundary voxel's distance to the nearest expert-boundary voxel, and every expert-boundary voxel's distance to the nearest predicted-boundary voxel, combined, via a spacing-aware Euclidean distance transform. Using the 95th percentile rather than the maximum (the plain Hausdorff distance) keeps one stray outlier voxel from dominating the number. Null, not zero or infinite, when either region is empty \u2014 a boundary distance against nothing is undefined, not a perfect or worst-case score."
+      }
+    },
+    {
+      "case": "BRATS_265",
+      "seconds": 80.3,
+      "WT": {
+        "region": "WT",
+        "dice": 0.9479,
+        "sensitivity": 0.9136,
+        "intersection_voxels": 196654,
+        "predicted_voxels": 199653,
+        "expert_voxels": 215255,
+        "hd95_mm": 2.449,
+        "hd95_definition": "95th percentile of the symmetric boundary-to-boundary distance: every predicted-boundary voxel's distance to the nearest expert-boundary voxel, and every expert-boundary voxel's distance to the nearest predicted-boundary voxel, combined, via a spacing-aware Euclidean distance transform. Using the 95th percentile rather than the maximum (the plain Hausdorff distance) keeps one stray outlier voxel from dominating the number. Null, not zero or infinite, when either region is empty \u2014 a boundary distance against nothing is undefined, not a perfect or worst-case score."
+      },
+      "TC": {
+        "region": "TC",
+        "dice": 0.9556,
+        "sensitivity": 0.9456,
+        "intersection_voxels": 105058,
+        "predicted_voxels": 108765,
+        "expert_voxels": 111104,
+        "hd95_mm": 13.964,
+        "hd95_definition": "95th percentile of the symmetric boundary-to-boundary distance: every predicted-boundary voxel's distance to the nearest expert-boundary voxel, and every expert-boundary voxel's distance to the nearest predicted-boundary voxel, combined, via a spacing-aware Euclidean distance transform. Using the 95th percentile rather than the maximum (the plain Hausdorff distance) keeps one stray outlier voxel from dominating the number. Null, not zero or infinite, when either region is empty \u2014 a boundary distance against nothing is undefined, not a perfect or worst-case score."
+      },
+      "ET": {
+        "region": "ET",
+        "dice": 0.9353,
+        "sensitivity": 0.9307,
+        "intersection_voxels": 74362,
+        "predicted_voxels": 79113,
+        "expert_voxels": 79903,
+        "hd95_mm": 1.414,
+        "hd95_definition": "95th percentile of the symmetric boundary-to-boundary distance: every predicted-boundary voxel's distance to the nearest expert-boundary voxel, and every expert-boundary voxel's distance to the nearest predicted-boundary voxel, combined, via a spacing-aware Euclidean distance transform. Using the 95th percentile rather than the maximum (the plain Hausdorff distance) keeps one stray outlier voxel from dominating the number. Null, not zero or infinite, when either region is empty \u2014 a boundary distance against nothing is undefined, not a perfect or worst-case score."
       }
     },
     {
       "case": "BRATS_306",
-      "seconds": 73.8,
+      "seconds": 78.1,
       "WT": {
         "region": "WT",
         "dice": 0.8542,
         "sensitivity": 0.7872,
         "intersection_voxels": 25232,
         "predicted_voxels": 27027,
-        "expert_voxels": 32051
+        "expert_voxels": 32051,
+        "hd95_mm": 19.209,
+        "hd95_definition": "95th percentile of the symmetric boundary-to-boundary distance: every predicted-boundary voxel's distance to the nearest expert-boundary voxel, and every expert-boundary voxel's distance to the nearest predicted-boundary voxel, combined, via a spacing-aware Euclidean distance transform. Using the 95th percentile rather than the maximum (the plain Hausdorff distance) keeps one stray outlier voxel from dominating the number. Null, not zero or infinite, when either region is empty \u2014 a boundary distance against nothing is undefined, not a perfect or worst-case score."
       },
       "TC": {
         "region": "TC",
@@ -77,7 +199,9 @@
         "sensitivity": 0.9136,
         "intersection_voxels": 7565,
         "predicted_voxels": 8117,
-        "expert_voxels": 8280
+        "expert_voxels": 8280,
+        "hd95_mm": 1.414,
+        "hd95_definition": "95th percentile of the symmetric boundary-to-boundary distance: every predicted-boundary voxel's distance to the nearest expert-boundary voxel, and every expert-boundary voxel's distance to the nearest predicted-boundary voxel, combined, via a spacing-aware Euclidean distance transform. Using the 95th percentile rather than the maximum (the plain Hausdorff distance) keeps one stray outlier voxel from dominating the number. Null, not zero or infinite, when either region is empty \u2014 a boundary distance against nothing is undefined, not a perfect or worst-case score."
       },
       "ET": {
         "region": "ET",
@@ -85,19 +209,125 @@
         "sensitivity": 0.8013,
         "intersection_voxels": 4786,
         "predicted_voxels": 5641,
-        "expert_voxels": 5973
+        "expert_voxels": 5973,
+        "hd95_mm": 1.414,
+        "hd95_definition": "95th percentile of the symmetric boundary-to-boundary distance: every predicted-boundary voxel's distance to the nearest expert-boundary voxel, and every expert-boundary voxel's distance to the nearest predicted-boundary voxel, combined, via a spacing-aware Euclidean distance transform. Using the 95th percentile rather than the maximum (the plain Hausdorff distance) keeps one stray outlier voxel from dominating the number. Null, not zero or infinite, when either region is empty \u2014 a boundary distance against nothing is undefined, not a perfect or worst-case score."
+      }
+    },
+    {
+      "case": "BRATS_318",
+      "seconds": 82.4,
+      "WT": {
+        "region": "WT",
+        "dice": 0.8702,
+        "sensitivity": 0.8118,
+        "intersection_voxels": 77628,
+        "predicted_voxels": 82794,
+        "expert_voxels": 95627,
+        "hd95_mm": 6.0,
+        "hd95_definition": "95th percentile of the symmetric boundary-to-boundary distance: every predicted-boundary voxel's distance to the nearest expert-boundary voxel, and every expert-boundary voxel's distance to the nearest predicted-boundary voxel, combined, via a spacing-aware Euclidean distance transform. Using the 95th percentile rather than the maximum (the plain Hausdorff distance) keeps one stray outlier voxel from dominating the number. Null, not zero or infinite, when either region is empty \u2014 a boundary distance against nothing is undefined, not a perfect or worst-case score."
+      },
+      "TC": {
+        "region": "TC",
+        "dice": 0.884,
+        "sensitivity": 0.7998,
+        "intersection_voxels": 22771,
+        "predicted_voxels": 23046,
+        "expert_voxels": 28472,
+        "hd95_mm": 2.828,
+        "hd95_definition": "95th percentile of the symmetric boundary-to-boundary distance: every predicted-boundary voxel's distance to the nearest expert-boundary voxel, and every expert-boundary voxel's distance to the nearest predicted-boundary voxel, combined, via a spacing-aware Euclidean distance transform. Using the 95th percentile rather than the maximum (the plain Hausdorff distance) keeps one stray outlier voxel from dominating the number. Null, not zero or infinite, when either region is empty \u2014 a boundary distance against nothing is undefined, not a perfect or worst-case score."
+      },
+      "ET": {
+        "region": "ET",
+        "dice": 0.8291,
+        "sensitivity": 0.7161,
+        "intersection_voxels": 16666,
+        "predicted_voxels": 16930,
+        "expert_voxels": 23272,
+        "hd95_mm": 2.236,
+        "hd95_definition": "95th percentile of the symmetric boundary-to-boundary distance: every predicted-boundary voxel's distance to the nearest expert-boundary voxel, and every expert-boundary voxel's distance to the nearest predicted-boundary voxel, combined, via a spacing-aware Euclidean distance transform. Using the 95th percentile rather than the maximum (the plain Hausdorff distance) keeps one stray outlier voxel from dominating the number. Null, not zero or infinite, when either region is empty \u2014 a boundary distance against nothing is undefined, not a perfect or worst-case score."
+      }
+    },
+    {
+      "case": "BRATS_365",
+      "seconds": 79.1,
+      "WT": {
+        "region": "WT",
+        "dice": 0.9118,
+        "sensitivity": 0.9414,
+        "intersection_voxels": 145231,
+        "predicted_voxels": 164264,
+        "expert_voxels": 154279,
+        "hd95_mm": 9.0,
+        "hd95_definition": "95th percentile of the symmetric boundary-to-boundary distance: every predicted-boundary voxel's distance to the nearest expert-boundary voxel, and every expert-boundary voxel's distance to the nearest predicted-boundary voxel, combined, via a spacing-aware Euclidean distance transform. Using the 95th percentile rather than the maximum (the plain Hausdorff distance) keeps one stray outlier voxel from dominating the number. Null, not zero or infinite, when either region is empty \u2014 a boundary distance against nothing is undefined, not a perfect or worst-case score."
+      },
+      "TC": {
+        "region": "TC",
+        "dice": 0.7163,
+        "sensitivity": 0.5796,
+        "intersection_voxels": 11023,
+        "predicted_voxels": 11762,
+        "expert_voxels": 19017,
+        "hd95_mm": 12.582,
+        "hd95_definition": "95th percentile of the symmetric boundary-to-boundary distance: every predicted-boundary voxel's distance to the nearest expert-boundary voxel, and every expert-boundary voxel's distance to the nearest predicted-boundary voxel, combined, via a spacing-aware Euclidean distance transform. Using the 95th percentile rather than the maximum (the plain Hausdorff distance) keeps one stray outlier voxel from dominating the number. Null, not zero or infinite, when either region is empty \u2014 a boundary distance against nothing is undefined, not a perfect or worst-case score."
+      },
+      "ET": {
+        "region": "ET",
+        "dice": 0.8035,
+        "sensitivity": 0.6907,
+        "intersection_voxels": 9008,
+        "predicted_voxels": 9381,
+        "expert_voxels": 13041,
+        "hd95_mm": 8.602,
+        "hd95_definition": "95th percentile of the symmetric boundary-to-boundary distance: every predicted-boundary voxel's distance to the nearest expert-boundary voxel, and every expert-boundary voxel's distance to the nearest predicted-boundary voxel, combined, via a spacing-aware Euclidean distance transform. Using the 95th percentile rather than the maximum (the plain Hausdorff distance) keeps one stray outlier voxel from dominating the number. Null, not zero or infinite, when either region is empty \u2014 a boundary distance against nothing is undefined, not a perfect or worst-case score."
+      }
+    },
+    {
+      "case": "BRATS_434",
+      "seconds": 77.3,
+      "WT": {
+        "region": "WT",
+        "dice": 0.8866,
+        "sensitivity": 0.8151,
+        "intersection_voxels": 48261,
+        "predicted_voxels": 49661,
+        "expert_voxels": 59206,
+        "hd95_mm": 6.633,
+        "hd95_definition": "95th percentile of the symmetric boundary-to-boundary distance: every predicted-boundary voxel's distance to the nearest expert-boundary voxel, and every expert-boundary voxel's distance to the nearest predicted-boundary voxel, combined, via a spacing-aware Euclidean distance transform. Using the 95th percentile rather than the maximum (the plain Hausdorff distance) keeps one stray outlier voxel from dominating the number. Null, not zero or infinite, when either region is empty \u2014 a boundary distance against nothing is undefined, not a perfect or worst-case score."
+      },
+      "TC": {
+        "region": "TC",
+        "dice": 0.8767,
+        "sensitivity": 0.8731,
+        "intersection_voxels": 24005,
+        "predicted_voxels": 27267,
+        "expert_voxels": 27493,
+        "hd95_mm": 3.0,
+        "hd95_definition": "95th percentile of the symmetric boundary-to-boundary distance: every predicted-boundary voxel's distance to the nearest expert-boundary voxel, and every expert-boundary voxel's distance to the nearest predicted-boundary voxel, combined, via a spacing-aware Euclidean distance transform. Using the 95th percentile rather than the maximum (the plain Hausdorff distance) keeps one stray outlier voxel from dominating the number. Null, not zero or infinite, when either region is empty \u2014 a boundary distance against nothing is undefined, not a perfect or worst-case score."
+      },
+      "ET": {
+        "region": "ET",
+        "dice": 0.8785,
+        "sensitivity": 0.8623,
+        "intersection_voxels": 21957,
+        "predicted_voxels": 24527,
+        "expert_voxels": 25463,
+        "hd95_mm": 3.317,
+        "hd95_definition": "95th percentile of the symmetric boundary-to-boundary distance: every predicted-boundary voxel's distance to the nearest expert-boundary voxel, and every expert-boundary voxel's distance to the nearest predicted-boundary voxel, combined, via a spacing-aware Euclidean distance transform. Using the 95th percentile rather than the maximum (the plain Hausdorff distance) keeps one stray outlier voxel from dominating the number. Null, not zero or infinite, when either region is empty \u2014 a boundary distance against nothing is undefined, not a perfect or worst-case score."
       }
     },
     {
       "case": "BRATS_449",
-      "seconds": 77.3,
+      "seconds": 76.6,
       "WT": {
         "region": "WT",
         "dice": 0.9574,
         "sensitivity": 0.9822,
         "intersection_voxels": 129252,
         "predicted_voxels": 138404,
-        "expert_voxels": 131589
+        "expert_voxels": 131589,
+        "hd95_mm": 2.236,
+        "hd95_definition": "95th percentile of the symmetric boundary-to-boundary distance: every predicted-boundary voxel's distance to the nearest expert-boundary voxel, and every expert-boundary voxel's distance to the nearest predicted-boundary voxel, combined, via a spacing-aware Euclidean distance transform. Using the 95th percentile rather than the maximum (the plain Hausdorff distance) keeps one stray outlier voxel from dominating the number. Null, not zero or infinite, when either region is empty \u2014 a boundary distance against nothing is undefined, not a perfect or worst-case score."
       },
       "TC": {
         "region": "TC",
@@ -105,7 +335,9 @@
         "sensitivity": 0.9046,
         "intersection_voxels": 65226,
         "predicted_voxels": 67850,
-        "expert_voxels": 72106
+        "expert_voxels": 72106,
+        "hd95_mm": 3.742,
+        "hd95_definition": "95th percentile of the symmetric boundary-to-boundary distance: every predicted-boundary voxel's distance to the nearest expert-boundary voxel, and every expert-boundary voxel's distance to the nearest predicted-boundary voxel, combined, via a spacing-aware Euclidean distance transform. Using the 95th percentile rather than the maximum (the plain Hausdorff distance) keeps one stray outlier voxel from dominating the number. Null, not zero or infinite, when either region is empty \u2014 a boundary distance against nothing is undefined, not a perfect or worst-case score."
       },
       "ET": {
         "region": "ET",
@@ -113,19 +345,23 @@
         "sensitivity": 0.7825,
         "intersection_voxels": 42303,
         "predicted_voxels": 43424,
-        "expert_voxels": 54064
+        "expert_voxels": 54064,
+        "hd95_mm": 2.449,
+        "hd95_definition": "95th percentile of the symmetric boundary-to-boundary distance: every predicted-boundary voxel's distance to the nearest expert-boundary voxel, and every expert-boundary voxel's distance to the nearest predicted-boundary voxel, combined, via a spacing-aware Euclidean distance transform. Using the 95th percentile rather than the maximum (the plain Hausdorff distance) keeps one stray outlier voxel from dominating the number. Null, not zero or infinite, when either region is empty \u2014 a boundary distance against nothing is undefined, not a perfect or worst-case score."
       }
     },
     {
       "case": "BRATS_457",
-      "seconds": 72.8,
+      "seconds": 76.2,
       "WT": {
         "region": "WT",
         "dice": 0.9135,
         "sensitivity": 0.9078,
         "intersection_voxels": 66987,
         "predicted_voxels": 72875,
-        "expert_voxels": 73791
+        "expert_voxels": 73791,
+        "hd95_mm": 3.464,
+        "hd95_definition": "95th percentile of the symmetric boundary-to-boundary distance: every predicted-boundary voxel's distance to the nearest expert-boundary voxel, and every expert-boundary voxel's distance to the nearest predicted-boundary voxel, combined, via a spacing-aware Euclidean distance transform. Using the 95th percentile rather than the maximum (the plain Hausdorff distance) keeps one stray outlier voxel from dominating the number. Null, not zero or infinite, when either region is empty \u2014 a boundary distance against nothing is undefined, not a perfect or worst-case score."
       },
       "TC": {
         "region": "TC",
@@ -133,7 +369,9 @@
         "sensitivity": 0.8257,
         "intersection_voxels": 2696,
         "predicted_voxels": 3245,
-        "expert_voxels": 3265
+        "expert_voxels": 3265,
+        "hd95_mm": 2.236,
+        "hd95_definition": "95th percentile of the symmetric boundary-to-boundary distance: every predicted-boundary voxel's distance to the nearest expert-boundary voxel, and every expert-boundary voxel's distance to the nearest predicted-boundary voxel, combined, via a spacing-aware Euclidean distance transform. Using the 95th percentile rather than the maximum (the plain Hausdorff distance) keeps one stray outlier voxel from dominating the number. Null, not zero or infinite, when either region is empty \u2014 a boundary distance against nothing is undefined, not a perfect or worst-case score."
       },
       "ET": {
         "region": "ET",
@@ -141,7 +379,9 @@
         "sensitivity": 0.7601,
         "intersection_voxels": 2446,
         "predicted_voxels": 2791,
-        "expert_voxels": 3218
+        "expert_voxels": 3218,
+        "hd95_mm": 2.828,
+        "hd95_definition": "95th percentile of the symmetric boundary-to-boundary distance: every predicted-boundary voxel's distance to the nearest expert-boundary voxel, and every expert-boundary voxel's distance to the nearest predicted-boundary voxel, combined, via a spacing-aware Euclidean distance transform. Using the 95th percentile rather than the maximum (the plain Hausdorff distance) keeps one stray outlier voxel from dominating the number. Null, not zero or infinite, when either region is empty \u2014 a boundary distance against nothing is undefined, not a perfect or worst-case score."
       }
     }
   ]

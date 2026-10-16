@@ -1,11 +1,11 @@
 {
-  "case_count": 4,
+  "case_count": 10,
   "citation": "Antonelli et al., 'The Medical Segmentation Decathlon', Nature Communications 2022 \u2014 http://medicaldecathlon.com/",
-  "code_commit": "55624dc",
+  "code_commit": "8620f4b",
   "dataset": "Medical Segmentation Decathlon \u2014 Task01_BrainTumour",
   "dataset_json_tensor_image_size": "4D",
-  "generated_at": "2026-10-16T19:08:12.820476+00:00",
-  "held_out_count": 1,
+  "generated_at": "2026-10-16T20:11:57.991391+00:00",
+  "held_out_count": 2,
   "label_remap": {
     "brats_meaning": {
       "0": "background",
@@ -27,7 +27,7 @@
     }
   },
   "licence": "CC-BY-SA 4.0",
-  "manifest_sha256": "62970a0db5a1a0b3b3d538390eb81473e5708689ae954c05e2213f043a72c4cd",
+  "manifest_sha256": "74fe7369ab8d6bf85fbcc885897263271650d88121dd4adced3fc978552e9364",
   "modality_order": {
     "0": "FLAIR",
     "1": "T1w",
@@ -41,5 +41,5 @@
   "source_md5": "240a19d752f0d9e9101544901065d872",
   "source_url": "https://msd-for-monai.s3-us-west-2.amazonaws.com/Task01_BrainTumour.tar",
   "split_file": "decathlon_split.json",
-  "train_count": 3
+  "train_count": 8
 }

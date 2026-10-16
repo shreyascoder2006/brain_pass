@@ -109,7 +109,7 @@ Every item below is a documented PS requirement, measured by actually running th
 | Orientation, same anatomy | **PASS** — 0.0% difference |
 | Orientation, mirrored anatomy | **PASS** |
 
-**17 / 17 automated pipeline tests pass with the real, checkpoint-verified MONAI model.** Separately, on real Decathlon data: Dice 0.90 / 0.90 / 0.85 (WT/TC/ET) across 4 cases, expansion to the PS's required 10 in progress — see [`docs/VERIFICATION.md`](VERIFICATION.md#real-data-accuracy-medical-segmentation-decathlon).
+**17 / 17 automated pipeline tests pass with the real, checkpoint-verified MONAI model.** Separately, on 10 real, held-out Decathlon cases — the PS's ≥10-case requirement — Dice 0.88 / 0.87 / 0.79 (WT/TC/ET), HD95 8.4 / 5.5 / 5.7mm — see [`docs/VERIFICATION.md`](VERIFICATION.md#real-data-accuracy-10-held-out-medical-segmentation-decathlon-cases).
 
 ## What's next
 

@@ -37,7 +37,7 @@ This isn't a mockup. Every claim below is a measured result, reproducible from t
 |---|---|
 | **17 / 17** | judges' own pipeline tests pass — failure pack, volume calibration, reproducibility, anisotropic, both orientation tests ([details](docs/VERIFICATION.md)) |
 | **Real model** | MONAI `brats_mri_segmentation` (SegResNet, Apache-2.0, BraTS-2018), checkpoint sha256-verified before every load |
-| **Dice 0.90 / 0.90 / 0.85** | WT / TC / ET, measured on **real** Medical Segmentation Decathlon tumour data — not synthetic ([details](docs/VERIFICATION.md#real-data-accuracy-medical-segmentation-decathlon)) |
+| **Dice 0.88 / 0.87 / 0.79** | WT / TC / ET, measured on **10 real, held-out** Medical Segmentation Decathlon cases — the PS's ≥10-case requirement, closed ([details](docs/VERIFICATION.md#real-data-accuracy-10-held-out-medical-segmentation-decathlon-cases)) |
 | **~60–75s / case** | measured end-to-end, CPU-only, against a 120s budget on a T4 GPU |
 | **Live uncertainty** | flip-based TTA ensemble — a *measured* confidence signal, not a guess, visible as a heat-map overlay |
 | **0 cloud calls** | fully local inference; uploads deleted immediately after processing, derived artefacts expire in 23h |

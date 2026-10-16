@@ -87,20 +87,29 @@ fetch trick, and the six new interactive features. Each real-data mention
 carries both caveats (4 of the required ≥10; pretraining overlap not
 verifiable).
 
-### 1b. Close the one unmet mandatory requirement — **in progress**
+### 1b. Close the one unmet mandatory requirement — **done**
 
 The feature-plan audit found 13 of 14 mandatory DI-02 boxes already met. The
-exception: **held-out Dice and sensitivity on at least 10 labelled cases.** We
-had four; a `--count 10` fetch + convert + evaluate run was kicked off in the
-background to get the remaining six. It is genuinely slow under real
-conditions — walking the tar's table of contents past the ~500th entry (many
-macOS `._` sidecar files and an `imagesTs` section to skip past) took over
-600 seconds running concurrently with live-case inference below, far past the
-"cache makes the re-walk instant" assumption this section originally stated.
-**Check `backend/data/real_sample_eval.json`'s `cases_scored` field for the
-current count before re-running this** — if it already reads 10, this item is
-closed; update `docs/VERIFICATION.md` and `docs/MODEL_CARD.md`'s "4 of 10"
-caveats to "10 of 10" and remove this paragraph.
+exception: **held-out Dice and sensitivity on at least 10 labelled cases.**
+Closed: `backend/data/real_sample_eval.json`'s `cases_scored` reads 10.
+Real figures (10 Decathlon cases, real checkpoint, no fine-tuning):
+
+| Region | Dice | Sensitivity | HD95 (mm) |
+|---|---|---|---|
+| WT | 0.8808 | 0.8460 | 8.43 |
+| TC | 0.8697 | 0.8505 | 5.53 |
+| ET | 0.7885 | 0.7617 | 5.71 |
+
+`docs/VERIFICATION.md` and `docs/MODEL_CARD.md` carry the full breakdown.
+Two things worth knowing if this needs re-running: the `--count 10` fetch was
+genuinely slow under real network conditions the first time (one connection
+read-timeout mid-run, past the "cache makes the re-walk instant" assumption
+this section originally stated) — see `backend/tools/fetch_decathlon_sample.py`'s
+retry-loop fix, committed alongside HD95. And `BRATS_218` scores notably
+lower on ET (Dice 0.308) than the other nine cases — this is reported in the
+committed figures, not excluded or treated as an error; a 10-case sample
+surfacing real variance a 4-case one couldn't is the entire point of doing
+this expansion.
 
 ### 1c / 1d. Wire real cases into the Datasets panel + verify against a live backend — **done, and found a real bug doing it**
 
