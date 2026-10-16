@@ -1,6 +1,8 @@
 import { REGIONS, type RegionKey } from '../lib/regions'
 import { useStore } from '../state/store'
 import { useStudy } from '../state/study'
+import type { Vec3 } from '../lib/volume'
+import QualityCentre from './QualityCentre'
 
 function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
@@ -19,6 +21,7 @@ function RegionCard({ k }: { k: RegionKey }) {
   const [dx, dy, dz] = study.spacing
   const conn = mode === 'live' ? liveMetadata?.connectivity?.[k] : null
   const unc = mode === 'live' ? liveMetadata?.uncertainty?.[k] : null
+  const geo = mode === 'live' ? liveMetadata?.geometry?.[k] : null
 
   return (
     <button
@@ -57,6 +60,14 @@ function RegionCard({ k }: { k: RegionKey }) {
             : `● ${conn.component_count} disconnected regions, largest ${(conn.largest_fraction * 100).toFixed(0)}%`}
         </div>
       )}
+      {geo && geo.max_diameter_mm > 0 && (
+        <div
+          className="truncate font-mono text-[9px] text-slate-500"
+          title={`${geo.max_diameter_definition}. Surface area: ${geo.surface_area_definition}.`}
+        >
+          ⌀ {geo.max_diameter_mm.toFixed(1)} mm · {Math.round(geo.surface_area_mm2).toLocaleString()} mm² surface
+        </div>
+      )}
       {unc && (
         <div
           className="truncate font-mono text-[9px] text-sky-500/70"
@@ -71,12 +82,28 @@ function RegionCard({ k }: { k: RegionKey }) {
 
 export default function BottomMetricsBar() {
   const { report, sha256, mode, liveMetadata } = useStudy()
-  const { maskSource } = useStore()
+  const { maskSource, setVoxel, setOverlayMode, setIsolated } = useStore()
   const hasExpert = mode === 'demo' || Boolean(liveMetadata?.has_expert)
-  const warnings = liveMetadata?.warnings ?? []
 
   const meanDice = REGIONS.reduce((a, d) => a + report[d.key].metric.dice, 0) / REGIONS.length
   const meanSens = REGIONS.reduce((a, d) => a + report[d.key].metric.sensitivity, 0) / REGIONS.length
+
+  // The largest thing the model missed, across all three regions — the single
+  // most useful place to send someone who wants to check the result by eye.
+  const agreement = liveMetadata?.agreement
+  const biggestMiss = agreement
+    ? REGIONS
+        .map((d) => ({ key: d.key, ...agreement[d.key] }))
+        .filter((a) => a.largest_miss_voxel && a.largest_miss_volume_ml > 0)
+        .sort((a, b) => b.largest_miss_volume_ml - a.largest_miss_volume_ml)[0]
+    : undefined
+
+  const jumpToMiss = () => {
+    if (!biggestMiss?.largest_miss_voxel) return
+    setVoxel(biggestMiss.largest_miss_voxel as Vec3)
+    setOverlayMode('agreement')
+    setIsolated(null)
+  }
 
   return (
     <div className="flex min-h-0 flex-col rounded-lg border border-edge bg-panel">
@@ -118,42 +145,22 @@ export default function BottomMetricsBar() {
               No expert mask was provided for this study.
             </div>
           )}
+
+          {biggestMiss && (
+            <button
+              onClick={jumpToMiss}
+              title="Move the crosshair to the centre of the largest region the expert marked and the model did not, and switch the slice views to the agreement overlay."
+              className="mt-1.5 flex w-full items-center justify-between gap-2 rounded border border-edge px-1.5 py-1 text-left transition hover:border-rose-500/50 hover:bg-rose-500/5"
+            >
+              <span className="truncate font-mono text-[9.5px] text-slate-400">
+                largest miss · {biggestMiss.key} {biggestMiss.largest_miss_volume_ml.toFixed(2)} mL
+              </span>
+              <span className="shrink-0 font-mono text-[9.5px] text-rose-400">go →</span>
+            </button>
+          )}
         </Card>
 
-        {warnings.length === 0 ? (
-          <div className="flex min-w-0 items-center gap-2.5 rounded-md border border-emerald-600/40 bg-emerald-500/10 px-3 py-2">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-500/20">
-              <svg viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth={2.4}
-                strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-                <path d="M20 6L9 17l-5-5" />
-              </svg>
-            </span>
-            <div className="min-w-0">
-              <div className="text-[10.5px] text-emerald-200/80">Input Validation</div>
-              <div className="text-[17px] font-semibold leading-tight text-emerald-400">PASS</div>
-              <div className="truncate font-mono text-[9px] text-emerald-200/50">
-                {mode === 'live' ? '4/4 sequences · shapes & affines match' : 'demo phantom · synthetic study'}
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div
-            className="flex min-w-0 items-center gap-2.5 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2"
-            title={warnings.map((w) => w.message).join('\n')}
-          >
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-500/20">
-              <svg viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth={2.4}
-                strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-                <path d="M12 9v4m0 4h.01M10.3 3.9L2.5 17a1 1 0 00.9 1.5h17.2a1 1 0 00.9-1.5L13.7 3.9a1 1 0 00-1.74 0z" />
-              </svg>
-            </span>
-            <div className="min-w-0">
-              <div className="text-[10.5px] text-amber-200/80">Input Validation</div>
-              <div className="text-[17px] font-semibold leading-tight text-amber-400">PASS · {warnings.length} warning{warnings.length > 1 ? 's' : ''}</div>
-              <div className="truncate font-mono text-[9px] text-amber-200/50">{warnings[0].message}</div>
-            </div>
-          </div>
-        )}
+        <QualityCentre />
       </div>
     </div>
   )

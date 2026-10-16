@@ -6,7 +6,9 @@ import LinkedMprGrid from './components/LinkedMprGrid'
 import ThreeBrainTwin from './components/ThreeBrainTwin'
 import TopBar from './components/TopBar'
 import UploadPanel from './components/UploadPanel'
+import { useShortcuts } from './lib/useShortcuts'
 import { StudyProvider } from './state/study'
+import { useStore } from './state/store'
 
 function Loading({ stage }: { stage: string }) {
   return (
@@ -27,9 +29,16 @@ function Loading({ stage }: { stage: string }) {
   )
 }
 
+function Shortcuts() {
+  const setHelpOpen = useStore((s) => s.setHelpOpen)
+  useShortcuts(() => setHelpOpen(true))
+  return null
+}
+
 export default function App() {
   return (
     <div className="flex h-full flex-col bg-ink">
+      <Shortcuts />
       <TopBar />
       <DisclaimerBanner />
       <UploadPanel />

@@ -13,8 +13,10 @@ from neuroscope.regions import (
     ED,
     ET,
     NCR,
+    agreement,
     compare,
     connectivity,
+    geometry,
     region_mask,
     regions_to_label,
     volume_ml,
@@ -92,6 +94,57 @@ def test_connectivity_empty_mask():
     assert c.component_count == 0
     assert c.component_volumes_ml == []
     assert c.largest_fraction == 0.0
+
+
+def test_geometry_of_a_cube_matches_hand_computed_values():
+    # A 10-voxel cube at 1 mm: body diagonal between voxel *centres* spans 9 mm
+    # per axis, and six 10x10 faces give 600 mm^2.
+    mask = np.zeros((20, 20, 20), dtype=bool)
+    mask[5:15, 5:15, 5:15] = True
+    g = geometry(mask, (1.0, 1.0, 1.0))
+
+    assert g.max_diameter_mm == pytest.approx(np.sqrt(3) * 9, rel=1e-6)
+    assert g.surface_area_mm2 == pytest.approx(600.0)
+    assert g.centroid_voxel == pytest.approx((9.5, 9.5, 9.5))
+    assert g.bbox_mm == pytest.approx((10.0, 10.0, 10.0))
+
+
+def test_geometry_surface_area_accounts_for_anisotropic_spacing():
+    mask = np.zeros((20, 20, 20), dtype=bool)
+    mask[5:15, 5:15, 5:15] = True
+    # At 1x1x2 mm the two z-facing face pairs stay 1x1 mm while the four
+    # side faces become 1x2 mm: 2*100*1 + 4*100*2 = 1000.
+    assert geometry(mask, (1.0, 1.0, 2.0)).surface_area_mm2 == pytest.approx(1000.0)
+
+
+def test_geometry_of_empty_region_is_all_zero():
+    g = geometry(np.zeros((5, 5, 5), dtype=bool), (1.0, 1.0, 1.0))
+    assert g.max_diameter_mm == 0.0
+    assert g.surface_area_mm2 == 0.0
+
+
+def test_agreement_splits_overlap_into_tp_fp_fn():
+    pred = np.zeros((10, 10, 10), dtype=np.uint8)
+    pred[2:6, 2:6, 2:6] = ET          # 64 voxels
+    truth = np.zeros((10, 10, 10), dtype=np.uint8)
+    truth[3:7, 3:7, 3:7] = ET         # 64 voxels, overlapping in a 3x3x3 corner
+    a = agreement(pred, truth, "ET", (1.0, 1.0, 1.0))
+
+    assert a.true_positive == 27
+    assert a.false_positive == 64 - 27
+    assert a.false_negative == 64 - 27
+    assert a.largest_miss_voxel is not None
+
+
+def test_agreement_with_no_expert_voxels_reports_no_miss():
+    pred = np.zeros((6, 6, 6), dtype=np.uint8)
+    pred[1:3, 1:3, 1:3] = ET
+    truth = np.zeros((6, 6, 6), dtype=np.uint8)
+    a = agreement(pred, truth, "ET", (1.0, 1.0, 1.0))
+
+    assert a.false_negative == 0
+    assert a.largest_miss_voxel is None
+    assert a.largest_miss_volume_ml == 0.0
 
 
 def test_volumes_all_reports_formula_inline():

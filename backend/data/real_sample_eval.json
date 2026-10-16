@@ -1,0 +1,148 @@
+{
+  "disclaimer": "Research and teaching prototype only. Never use model output as a diagnosis.",
+  "model": {
+    "name": "MONAI brats_mri_segmentation (SegResNet)",
+    "version": "0.5.4",
+    "licence": "Apache-2.0",
+    "source": "MONAI Model Zoo, trained on BraTS 2018",
+    "deterministic": true
+  },
+  "cases_scored": 4,
+  "case_ids": [
+    "BRATS_206",
+    "BRATS_306",
+    "BRATS_449",
+    "BRATS_457"
+  ],
+  "skipped": [],
+  "split": "held-out by patient; one folder per patient, no patient appears twice",
+  "training_data_overlap": "Not independently verifiable from the MONAI brats_mri_segmentation checkpoint's public release (trained on BraTS 2018); these Decathlon Task01_BrainTumour cases may or may not overlap that training set.",
+  "summary": {
+    "WT": {
+      "mean_dice": 0.9013,
+      "mean_sensitivity": 0.8677
+    },
+    "TC": {
+      "mean_dice": 0.8989,
+      "mean_sensitivity": 0.8882
+    },
+    "ET": {
+      "mean_dice": 0.8503,
+      "mean_sensitivity": 0.8207
+    }
+  },
+  "per_case": [
+    {
+      "case": "BRATS_206",
+      "seconds": 73.6,
+      "WT": {
+        "region": "WT",
+        "dice": 0.8801,
+        "sensitivity": 0.7936,
+        "intersection_voxels": 211850,
+        "predicted_voxels": 214506,
+        "expert_voxels": 266936
+      },
+      "TC": {
+        "region": "TC",
+        "dice": 0.9125,
+        "sensitivity": 0.9088,
+        "intersection_voxels": 46204,
+        "predicted_voxels": 50429,
+        "expert_voxels": 50841
+      },
+      "ET": {
+        "region": "ET",
+        "dice": 0.8951,
+        "sensitivity": 0.9391,
+        "intersection_voxels": 24168,
+        "predicted_voxels": 28264,
+        "expert_voxels": 25735
+      }
+    },
+    {
+      "case": "BRATS_306",
+      "seconds": 73.8,
+      "WT": {
+        "region": "WT",
+        "dice": 0.8542,
+        "sensitivity": 0.7872,
+        "intersection_voxels": 25232,
+        "predicted_voxels": 27027,
+        "expert_voxels": 32051
+      },
+      "TC": {
+        "region": "TC",
+        "dice": 0.9227,
+        "sensitivity": 0.9136,
+        "intersection_voxels": 7565,
+        "predicted_voxels": 8117,
+        "expert_voxels": 8280
+      },
+      "ET": {
+        "region": "ET",
+        "dice": 0.8242,
+        "sensitivity": 0.8013,
+        "intersection_voxels": 4786,
+        "predicted_voxels": 5641,
+        "expert_voxels": 5973
+      }
+    },
+    {
+      "case": "BRATS_449",
+      "seconds": 77.3,
+      "WT": {
+        "region": "WT",
+        "dice": 0.9574,
+        "sensitivity": 0.9822,
+        "intersection_voxels": 129252,
+        "predicted_voxels": 138404,
+        "expert_voxels": 131589
+      },
+      "TC": {
+        "region": "TC",
+        "dice": 0.9321,
+        "sensitivity": 0.9046,
+        "intersection_voxels": 65226,
+        "predicted_voxels": 67850,
+        "expert_voxels": 72106
+      },
+      "ET": {
+        "region": "ET",
+        "dice": 0.8679,
+        "sensitivity": 0.7825,
+        "intersection_voxels": 42303,
+        "predicted_voxels": 43424,
+        "expert_voxels": 54064
+      }
+    },
+    {
+      "case": "BRATS_457",
+      "seconds": 72.8,
+      "WT": {
+        "region": "WT",
+        "dice": 0.9135,
+        "sensitivity": 0.9078,
+        "intersection_voxels": 66987,
+        "predicted_voxels": 72875,
+        "expert_voxels": 73791
+      },
+      "TC": {
+        "region": "TC",
+        "dice": 0.8283,
+        "sensitivity": 0.8257,
+        "intersection_voxels": 2696,
+        "predicted_voxels": 3245,
+        "expert_voxels": 3265
+      },
+      "ET": {
+        "region": "ET",
+        "dice": 0.8141,
+        "sensitivity": 0.7601,
+        "intersection_voxels": 2446,
+        "predicted_voxels": 2791,
+        "expert_voxels": 3218
+      }
+    }
+  ]
+}

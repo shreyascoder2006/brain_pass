@@ -28,6 +28,25 @@ export interface ConnectivitySummary {
   largest_fraction: number
 }
 
+export interface GeometrySummary {
+  max_diameter_mm: number
+  max_diameter_definition: string
+  diameter_from_mm: number[]
+  diameter_to_mm: number[]
+  surface_area_mm2: number
+  surface_area_definition: string
+  centroid_voxel: number[]
+  bbox_mm: number[]
+}
+
+export interface AgreementSummary {
+  true_positive: number
+  false_positive: number
+  false_negative: number
+  largest_miss_voxel: number[] | null
+  largest_miss_volume_ml: number
+}
+
 export interface Finding {
   code: string
   sequence: string | null
@@ -40,8 +59,10 @@ export interface SegmentMetadata {
   affine: number[]
   regions: Record<'WT' | 'TC' | 'ET', RegionVolume>
   connectivity: Record<'WT' | 'TC' | 'ET', ConnectivitySummary>
+  geometry: Record<'WT' | 'TC' | 'ET', GeometrySummary>
   expert: Record<'WT' | 'TC' | 'ET', RegionVolume> | null
   metrics: Record<'WT' | 'TC' | 'ET', RegionMetric> | null
+  agreement: Record<'WT' | 'TC' | 'ET', AgreementSummary> | null
   has_expert: boolean
   has_uncertainty: boolean
   uncertainty_scale: number

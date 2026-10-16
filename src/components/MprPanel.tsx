@@ -30,10 +30,20 @@ function heatColour(t: number): [number, number, number] {
   return [239, 68, 68]
 }
 
-/** Lifts the MRI towards the bright window the reference renders at. */
-function window_(g: number): number {
-  const v = 14 + g * 1.42
-  return v > 255 ? 255 : v
+/** Agreement colours: a hit is reassuring, a false alarm is a nuisance, a miss
+ *  is the one that matters — so the ramp runs calm → warm → alarming. */
+const AGREEMENT_COLOUR = {
+  tp: [52, 168, 128] as [number, number, number],
+  fp: [234, 160, 60] as [number, number, number],
+  fn: [233, 72, 94] as [number, number, number],
+}
+
+/** Standard radiology window/level: everything below centre−width/2 is black,
+ *  everything above centre+width/2 is white, linear in between. */
+function applyWindow(g: number, centre: number, width: number): number {
+  const lo = centre - width / 2
+  const v = ((g - lo) / (width || 1)) * 255
+  return v < 0 ? 0 : v > 255 ? 255 : v
 }
 
 export default function MprPanel({
@@ -46,12 +56,16 @@ export default function MprPanel({
   compact?: boolean
 }) {
   const { study, crop, uncertainty } = useStudy()
-  const { voxel, setVoxel, sequence, maskSource, showOverlay, overlayMode, activePanel, setActivePanel } = useStore()
+  const {
+    voxel, setVoxel, sequence, maskSource, showOverlay, overlayMode, activePanel, setActivePanel,
+    tool, measure, pushMeasure, windowCenter, windowWidth, setWindow,
+  } = useStore()
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const offscreen = useRef<HTMLCanvasElement>(document.createElement('canvas'))
   const wrapRef = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState({ w: 0, h: 0 })
   const dragging = useRef(false)
+  const windowDrag = useRef<{ x: number; y: number; centre: number; width: number } | null>(null)
 
   const def = PLANES[plane]
   const seq = sequenceOverride ?? sequence
@@ -123,11 +137,28 @@ export default function MprPanel({
       for (let col = 0; col < hCount; col++) {
         const hIdx = crop.lo[def.hAxis] + (def.hDir > 0 ? col : hCount - 1 - col)
         const p = at(hIdx, vIdx)
-        const g = window_(data[p])
+        const g = applyWindow(data[p], windowCenter, windowWidth)
         const o = (row * hCount + col) * 4
         px[o] = g; px[o + 1] = g; px[o + 2] = g; px[o + 3] = 255
 
         if (!showOverlay) continue
+
+        if (overlayMode === 'agreement') {
+          // Whole-tumour extent on both sides: the question this overlay answers
+          // is "did it find the tumour, and where did it get the edge wrong".
+          const inPred = study.predicted[p] !== 0
+          const inTruth = study.expert[p] !== 0
+          if (!inPred && !inTruth) continue
+          const c = inPred && inTruth ? AGREEMENT_COLOUR.tp
+            : inPred ? AGREEMENT_COLOUR.fp
+            : AGREEMENT_COLOUR.fn
+          // Disagreement is washed harder than agreement so the eye lands on it.
+          const a = inPred && inTruth ? 0.3 : 0.6
+          px[o] = c[0] * a + px[o] * (1 - a)
+          px[o + 1] = c[1] * a + px[o + 1] * (1 - a)
+          px[o + 2] = c[2] * a + px[o + 2] * (1 - a)
+          continue
+        }
 
         if (overlayMode === 'uncertainty' && uncertainty) {
           const u = Math.max(uncertainty.WT[p], uncertainty.TC[p], uncertainty.ET[p])
@@ -160,13 +191,21 @@ export default function MprPanel({
     ctx.imageSmoothingQuality = 'high'
     ctx.drawImage(off, x, y, drawW, drawH)
 
+    /** Voxel index -> canvas pixel, shared by the crosshair and any measurement
+     *  drawn on this plane so they can never drift apart. */
+    const project = (v: Vec3) => {
+      const hLocal = v[def.hAxis] - crop.lo[def.hAxis]
+      const vLocal = v[def.vAxis] - crop.lo[def.vAxis]
+      const hPix = def.hDir > 0 ? hLocal : hCount - 1 - hLocal
+      const vPix = def.vDir > 0 ? vCount - 1 - vLocal : vLocal
+      return {
+        cx: x + ((hPix + 0.5) / hCount) * drawW,
+        cy: y + ((vPix + 0.5) / vCount) * drawH,
+      }
+    }
+
     // Crosshair
-    const hLocal = voxel[def.hAxis] - crop.lo[def.hAxis]
-    const vLocal = voxel[def.vAxis] - crop.lo[def.vAxis]
-    const hPix = def.hDir > 0 ? hLocal : hCount - 1 - hLocal
-    const vPix = def.vDir > 0 ? vCount - 1 - vLocal : vLocal
-    const cx = x + ((hPix + 0.5) / hCount) * drawW
-    const cy = y + ((vPix + 0.5) / vCount) * drawH
+    const { cx, cy } = project(voxel)
     const gap = 7
 
     ctx.lineWidth = 1
@@ -182,16 +221,57 @@ export default function MprPanel({
     ctx.beginPath()
     ctx.arc(cx, cy, 3.2, 0, Math.PI * 2)
     ctx.stroke()
-  }, [size, study, seq, slice, voxel, def, label, showOverlay, overlayMode, uncertainty, layout, crop])
 
-  const pick = useCallback((clientX: number, clientY: number) => {
+    // Measurement, drawn only on the plane its points were placed in.
+    const mine = measure.filter((m) => m.plane === plane)
+    if (mine.length) {
+      const pts = mine.map((m) => project(m.voxel))
+      ctx.strokeStyle = '#f5d76e'
+      ctx.fillStyle = '#f5d76e'
+      ctx.lineWidth = 1.25
+
+      for (const p of pts) {
+        ctx.beginPath()
+        ctx.moveTo(p.cx - 5, p.cy); ctx.lineTo(p.cx + 5, p.cy)
+        ctx.moveTo(p.cx, p.cy - 5); ctx.lineTo(p.cx, p.cy + 5)
+        ctx.stroke()
+      }
+
+      if (pts.length === 2) {
+        ctx.beginPath()
+        ctx.moveTo(pts[0].cx, pts[0].cy)
+        ctx.lineTo(pts[1].cx, pts[1].cy)
+        ctx.stroke()
+
+        const [a, b] = mine
+        const mm = Math.sqrt(
+          ((a.voxel[0] - b.voxel[0]) * study.spacing[0]) ** 2 +
+          ((a.voxel[1] - b.voxel[1]) * study.spacing[1]) ** 2 +
+          ((a.voxel[2] - b.voxel[2]) * study.spacing[2]) ** 2,
+        )
+        const text = `${mm.toFixed(1)} mm`
+        const mx = (pts[0].cx + pts[1].cx) / 2
+        const my = (pts[0].cy + pts[1].cy) / 2
+        ctx.font = '600 11px ui-monospace, SFMono-Regular, Consolas, monospace'
+        const w = ctx.measureText(text).width
+        ctx.fillStyle = 'rgba(10, 14, 20, 0.85)'
+        ctx.fillRect(mx - w / 2 - 4, my - 16, w + 8, 15)
+        ctx.fillStyle = '#f5d76e'
+        ctx.fillText(text, mx - w / 2, my - 5)
+      }
+    }
+  }, [size, study, seq, slice, voxel, def, label, showOverlay, overlayMode, uncertainty, layout, crop,
+      windowCenter, windowWidth, measure, plane])
+
+  /** Canvas point -> voxel index on this plane, or null outside the image. */
+  const voxelAt = useCallback((clientX: number, clientY: number): Vec3 | null => {
     const canvas = canvasRef.current
-    if (!canvas) return
+    if (!canvas) return null
     const rect = canvas.getBoundingClientRect()
     const { hCount, vCount, drawW, drawH, x, y } = layout()
     const fx = (clientX - rect.left - x) / drawW
     const fy = (clientY - rect.top - y) / drawH
-    if (fx < 0 || fy < 0 || fx > 1 || fy > 1) return
+    if (fx < 0 || fy < 0 || fx > 1 || fy > 1) return null
 
     let h = Math.floor(fx * hCount)
     let v = Math.floor(fy * vCount)
@@ -199,12 +279,17 @@ export default function MprPanel({
     v = def.vDir > 0 ? vCount - 1 - v : v
 
     const next: Vec3 = [...voxel] as Vec3
-    const clamp = (x: number, axis: 0 | 1 | 2) =>
-      Math.min(crop.hi[axis] - 1, Math.max(crop.lo[axis], crop.lo[axis] + x))
+    const clamp = (n: number, axis: 0 | 1 | 2) =>
+      Math.min(crop.hi[axis] - 1, Math.max(crop.lo[axis], crop.lo[axis] + n))
     next[def.hAxis] = clamp(h, def.hAxis)
     next[def.vAxis] = clamp(v, def.vAxis)
-    setVoxel(next)
-  }, [layout, def, voxel, setVoxel, crop])
+    return next
+  }, [layout, def, voxel, crop])
+
+  const pick = useCallback((clientX: number, clientY: number) => {
+    const next = voxelAt(clientX, clientY)
+    if (next) setVoxel(next)
+  }, [voxelAt, setVoxel])
 
   const onWheel = (e: React.WheelEvent) => {
     const next: Vec3 = [...voxel] as Vec3
@@ -241,16 +326,38 @@ export default function MprPanel({
       <div className="flex min-h-0 flex-1">
       <div
         ref={wrapRef}
-        className="relative min-h-0 flex-1 cursor-crosshair select-none"
+        className={`relative min-h-0 flex-1 select-none ${
+          tool === 'measure' ? 'cursor-cell' : tool === 'window' ? 'cursor-ns-resize' : 'cursor-crosshair'
+        }`}
         onPointerDown={(e) => {
-          dragging.current = true
           ;(e.target as Element).setPointerCapture?.(e.pointerId)
           setActivePanel(plane)
+          if (tool === 'window') {
+            windowDrag.current = { x: e.clientX, y: e.clientY, centre: windowCenter, width: windowWidth }
+            return
+          }
+          if (tool === 'measure') {
+            const v = voxelAt(e.clientX, e.clientY)
+            if (v) pushMeasure({ voxel: v, plane })
+            return
+          }
+          dragging.current = true
           pick(e.clientX, e.clientY)
         }}
-        onPointerMove={(e) => { if (dragging.current) pick(e.clientX, e.clientY) }}
-        onPointerUp={() => { dragging.current = false }}
-        onPointerLeave={() => { dragging.current = false }}
+        onPointerMove={(e) => {
+          if (windowDrag.current) {
+            // The radiology convention: drag across to widen, up to brighten.
+            const d = windowDrag.current
+            setWindow(
+              Math.round(Math.max(1, Math.min(255, d.centre - (e.clientY - d.y) * 0.6))),
+              Math.round(Math.max(2, Math.min(510, d.width + (e.clientX - d.x) * 0.9))),
+            )
+            return
+          }
+          if (dragging.current) pick(e.clientX, e.clientY)
+        }}
+        onPointerUp={() => { dragging.current = false; windowDrag.current = null }}
+        onPointerLeave={() => { dragging.current = false; windowDrag.current = null }}
         onWheel={onWheel}
       >
         <canvas ref={canvasRef} className="block h-full w-full" style={{ width: '100%', height: '100%' }} />

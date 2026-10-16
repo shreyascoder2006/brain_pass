@@ -36,7 +36,14 @@ from neuroscope.config import Settings
 from neuroscope.infer import HeuristicSegmenter, Segmenter, load_segmenter, stack_channels
 from neuroscope.limits import MAX_INFERENCE_VOXELS, BudgetExceeded, check_voxel_budget
 from neuroscope.provenance import git_commit, sha256
-from neuroscope.regions import connectivity_all, regions_to_label, score_all, volumes_all
+from neuroscope.regions import (
+    agreement_all,
+    connectivity_all,
+    geometry_all,
+    regions_to_label,
+    score_all,
+    volumes_all,
+)
 from neuroscope.validate import SEQUENCES, validate_label, validate_study
 from server.viewer import prepare_viewer
 
@@ -252,8 +259,10 @@ def process(job: str, paths: dict[str, Path], expert_path: Path | None, out: Pat
         "description": "Suspected tumour regions predicted by the model. Estimated volumes.",
         "regions": volumes_all(label_out, reference.spacing),
         "connectivity": connectivity_all(label_out, reference.spacing),
+        "geometry": geometry_all(label_out, reference.spacing),
         "expert": volumes_all(truth, reference.spacing) if truth is not None else None,
         "metrics": {k: m.as_dict() for k, m in score_all(label_out, truth).items()} if truth is not None else None,
+        "agreement": agreement_all(label_out, truth, reference.spacing) if truth is not None else None,
         "has_expert": truth is not None,
         "uncertainty": uncertainty_summary,
         "model": {

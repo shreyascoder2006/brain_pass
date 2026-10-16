@@ -60,14 +60,22 @@ export default function HelpPanel() {
               passes — <em>not</em> a calibrated probability of correctness.
             </p>
             <p>
+              <strong className="text-slate-200">Shape measurements</strong> — maximum 3D diameter and boundary
+              surface area sit under each region's volume. Both name their own definition on hover, because
+              "diameter" and "surface area" each have several and the gap between them is wider than the
+              measurement error.
+            </p>
+            <p>
               <strong className="text-slate-200">Full provenance</strong> — "Download report" in the top bar
               (live studies only) opens a printable report with checkpoint hash, input file hashes, code commit,
               every validation warning, and the complete metrics block.
             </p>
             <p className="text-slate-500">
-              No real held-out accuracy on a large patient cohort exists yet — today's Dice figures come from the
-              synthetic calibration case and a small number of real sample cases, honestly labelled as such in the
-              Datasets panel, never presented as a clinical benchmark.
+              Measured so far: mean Dice 0.901 / 0.899 / 0.850 (WT / TC / ET) over four real Medical Segmentation
+              Decathlon cases. Four cases is a sample, not a cohort — the problem statement asks for ten held-out
+              cases, and overlap with the checkpoint's own BraTS-2018 training set can't be ruled out from its
+              public release. Treat it as evidence the pipeline works end to end on real data, not as a clinical
+              benchmark.
             </p>
           </Section>
 
@@ -86,18 +94,35 @@ export default function HelpPanel() {
             <p><strong className="text-slate-200">Slice views (right)</strong> — click anywhere on any of the four panels, including
               the 3D mesh, to move one shared crosshair everywhere at once. The position is shown as both a voxel
               index and a physical world-mm coordinate.</p>
+            <p><strong className="text-slate-200">Measure</strong> — click two points on any one view for a
+              straight-line distance in millimetres, computed from that scan's own voxel spacing. Press
+              <Kbd>Esc</Kbd> to clear.</p>
+            <p><strong className="text-slate-200">Window / contrast</strong> — drag on any view: up and down
+              moves the window centre, left and right changes its width. This is a display setting; it never
+              touches the prediction or any measurement.</p>
+            <p><strong className="text-slate-200">Agreement</strong> — when an expert mask exists, colour every
+              voxel by whether the two masks agree: green where both say tumour, amber where only the model
+              does, red where only the expert does. "Largest miss → go" in the metrics bar flies the crosshair
+              straight to the biggest thing the model left out.</p>
             <ul className="ml-4 list-disc space-y-1">
-              <li><Kbd>crosshair</Kbd> recentres on the last click</li>
-              <li><Kbd>eye</Kbd> toggles the segmentation colour wash</li>
-              <li><Kbd>model / expert</Kbd> switches which mask the slices and metrics show (when an expert mask exists)</li>
-              <li><Kbd>confidence</Kbd> swaps the colour wash for the flip-TTA uncertainty heat-map</li>
-              <li><Kbd>target</Kbd> jumps the crosshair straight to the tumour centroid</li>
               <li>the fourth panel compares an alternate sequence side-by-side without losing the shared crosshair</li>
+              <li>clicking a region card isolates that region in 3D and drops the rest to wireframe</li>
             </ul>
-            <p className="font-mono text-[10px] text-amber-400/70">
-              Window/contrast and point-to-point measurement are stubbed in the toolbar today (no-ops) — on the
-              near-term build list, not yet wired up.
-            </p>
+          </Section>
+
+          <Section title="Keyboard">
+            <div className="grid grid-cols-2 gap-x-6 gap-y-1">
+              <p><Kbd>C</Kbd> crosshair tool</p>
+              <p><Kbd>M</Kbd> measure tool</p>
+              <p><Kbd>W</Kbd> window / contrast</p>
+              <p><Kbd>O</Kbd> overlay on / off</p>
+              <p><Kbd>E</Kbd> model ↔ expert mask</p>
+              <p><Kbd>U</Kbd> uncertainty heat-map</p>
+              <p><Kbd>A</Kbd> agreement overlay</p>
+              <p><Kbd>B</Kbd> brain shell on / off</p>
+              <p><Kbd>?</Kbd> this panel</p>
+              <p><Kbd>Esc</Kbd> back to crosshair</p>
+            </div>
           </Section>
 
           <Section title="Running a case">

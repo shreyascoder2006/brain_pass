@@ -5,6 +5,20 @@ import type { SequenceName, Vec3 } from '../lib/volume'
 export type PlaneKey = 'axial' | 'coronal' | 'sagittal'
 export type MaskSource = 'predicted' | 'expert'
 
+/** What a click on a slice does. Crosshair navigates; the others measure or
+ *  re-window, so they take the pointer over from navigation while active. */
+export type Tool = 'crosshair' | 'measure' | 'window'
+
+export interface MeasurePoint {
+  voxel: Vec3
+  plane: PlaneKey
+}
+
+/** Greyscale window, in the same 0–255 units the slice data arrives in.
+ *  The defaults reproduce the fixed ramp this viewer shipped with before the
+ *  control existed, so opening the panel changes nothing until it's touched. */
+export const DEFAULT_WINDOW = { center: 80, width: 180 }
+
 interface RegionUi {
   visible: boolean
   opacity: number
@@ -47,9 +61,24 @@ interface State {
   showOverlay: boolean
   toggleOverlay: () => void
 
-  /** 'segmentation' washes WT/TC/ET region colours; 'uncertainty' shows the flip-TTA confidence heatmap instead */
-  overlayMode: 'segmentation' | 'uncertainty'
-  setOverlayMode: (m: 'segmentation' | 'uncertainty') => void
+  /** 'segmentation' washes WT/TC/ET region colours; 'uncertainty' shows the
+   *  flip-TTA confidence heatmap; 'agreement' colours the prediction against
+   *  the expert mask as hit / false alarm / miss. */
+  overlayMode: 'segmentation' | 'uncertainty' | 'agreement'
+  setOverlayMode: (m: 'segmentation' | 'uncertainty' | 'agreement') => void
+
+  tool: Tool
+  setTool: (t: Tool) => void
+
+  /** Up to two points; the second completes a measurement, a third restarts. */
+  measure: MeasurePoint[]
+  pushMeasure: (p: MeasurePoint) => void
+  clearMeasure: () => void
+
+  windowCenter: number
+  windowWidth: number
+  setWindow: (center: number, width: number) => void
+  resetWindow: () => void
 
   uploadOpen: boolean
   setUploadOpen: (open: boolean) => void
@@ -103,6 +132,18 @@ export const useStore = create<State>((set) => ({
 
   overlayMode: 'segmentation',
   setOverlayMode: (overlayMode) => set({ overlayMode }),
+
+  tool: 'crosshair',
+  setTool: (tool) => set({ tool, ...(tool === 'measure' ? {} : { measure: [] }) }),
+
+  measure: [],
+  pushMeasure: (p) => set((s) => ({ measure: s.measure.length >= 2 ? [p] : [...s.measure, p] })),
+  clearMeasure: () => set({ measure: [] }),
+
+  windowCenter: DEFAULT_WINDOW.center,
+  windowWidth: DEFAULT_WINDOW.width,
+  setWindow: (windowCenter, windowWidth) => set({ windowCenter, windowWidth }),
+  resetWindow: () => set({ windowCenter: DEFAULT_WINDOW.center, windowWidth: DEFAULT_WINDOW.width }),
 
   uploadOpen: false,
   setUploadOpen: (uploadOpen) => set({ uploadOpen }),
