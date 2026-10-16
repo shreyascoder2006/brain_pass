@@ -19,6 +19,12 @@ backend/testdata/
 # Live server job directories — uploads/results, deleted automatically after 23h
 backend/.runtime/
 
+# Decathlon download + converted per-case volumes — recreate with:
+#   python backend/tools/convert_decathlon.py --out backend/data
+# (manifest.json and decathlon_split.json are small and stay tracked)
+backend/data/raw/
+backend/data/decathlon/
+
 # Imaging data must never be committed
 *.nii
 *.nii.gz
