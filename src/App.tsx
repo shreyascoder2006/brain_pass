@@ -1,14 +1,21 @@
-import BottomMetricsBar from './components/BottomMetricsBar'
+import BottomActivityStrip from './components/BottomActivityStrip'
 import DatasetsPanel from './components/DatasetsPanel'
 import DisclaimerBanner from './components/DisclaimerBanner'
 import HelpPanel from './components/HelpPanel'
-import LinkedMprGrid from './components/LinkedMprGrid'
-import ThreeBrainTwin from './components/ThreeBrainTwin'
+import NavigationSidebar from './components/NavigationSidebar'
 import TopBar from './components/TopBar'
 import UploadPanel from './components/UploadPanel'
+import CommandCentreWorkspace from './components/workspaces/CommandCentreWorkspace'
+import NeuroLearnWorkspace from './components/workspaces/NeuroLearnWorkspace'
+import ResearchGraphWorkspace from './components/workspaces/ResearchGraphWorkspace'
+import ResearchLabWorkspace from './components/workspaces/ResearchLabWorkspace'
+import ReviewWorkspace from './components/workspaces/ReviewWorkspace'
+import TrustExplainabilityWorkspace from './components/workspaces/TrustExplainabilityWorkspace'
+import ViewerWorkspace from './components/workspaces/ViewerWorkspace'
 import { useShortcuts } from './lib/useShortcuts'
-import { StudyProvider } from './state/study'
 import { useStore } from './state/store'
+import { StudyProvider } from './state/study'
+import { useWorkspaceStore } from './state/workspaceStore'
 
 function Loading({ stage }: { stage: string }) {
   return (
@@ -36,23 +43,51 @@ function Shortcuts() {
 }
 
 export default function App() {
+  const activeWorkspace = useWorkspaceStore((s) => s.activeWorkspace)
+
   return (
-    <div className="flex h-full flex-col bg-ink">
+    <div className="flex h-screen flex-col overflow-hidden bg-ink select-none font-sans">
       <Shortcuts />
       <TopBar />
       <DisclaimerBanner />
       <UploadPanel />
       <DatasetsPanel />
       <HelpPanel />
-      <StudyProvider fallback={(stage) => <Loading stage={stage} />}>
-        <main className="grid min-h-0 flex-1 grid-cols-2 gap-2 p-2 pt-2">
-          <ThreeBrainTwin />
-          <LinkedMprGrid />
-        </main>
-        <div className="shrink-0 px-2 pb-2">
-          <BottomMetricsBar />
+
+      {/* Main Workspace Layout */}
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        <NavigationSidebar />
+
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          {activeWorkspace === 'dashboard' && <CommandCentreWorkspace />}
+
+          {activeWorkspace === 'viewer' && (
+            <StudyProvider fallback={(stage) => <Loading stage={stage} />}>
+              <ViewerWorkspace />
+            </StudyProvider>
+          )}
+
+          {activeWorkspace === 'review' && (
+            <StudyProvider fallback={(stage) => <Loading stage={stage} />}>
+              <ReviewWorkspace />
+            </StudyProvider>
+          )}
+
+          {activeWorkspace === 'research' && <ResearchLabWorkspace />}
+
+          {activeWorkspace === 'trust' && (
+            <StudyProvider fallback={(stage) => <Loading stage={stage} />}>
+              <TrustExplainabilityWorkspace />
+            </StudyProvider>
+          )}
+
+          {activeWorkspace === 'learn' && <NeuroLearnWorkspace />}
+
+          {activeWorkspace === 'graph' && <ResearchGraphWorkspace />}
+
+          <BottomActivityStrip />
         </div>
-      </StudyProvider>
+      </div>
     </div>
   )
 }

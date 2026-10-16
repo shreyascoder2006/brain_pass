@@ -72,6 +72,14 @@ volumes per modality and remaps Decathlon's label codes to BraTS 1/2/4.
   volume, each naming its definition on hover.
 - **Keyboard shortcuts** — C/M/W/O/E/U/A/B/? and Esc, suppressed while a field
   has focus (`lib/useShortcuts.ts`).
+- **Multi-Workspace Studio Architecture** — Refactored NeuroScope 3D into a full research studio with 6 dedicated workspaces and a signature Research Graph:
+  - `01 Command Centre (/dashboard)`: Session-level triage, cohort casebook, QC backlog, and health overview.
+  - `02 3D Studio Viewer (/studio/:id)`: 3D digital twin + linked MPR, measurement HUD, and spatial bookmarks drawer.
+  - `03 Segmentation Review (/review/:id)`: Disagreement mapping (TP/FP/FN), error cluster explorer, and audit disposition.
+  - `04 Research Lab (/research)`: Cohort experiment builder, Decathlon 10-case benchmark, boxplot distributions, and outlier drilldown.
+  - `05 Trust & Explainability (/trust/:id)`: 3-Pillar audit, interactive uncertainty threshold slider, calibration curve, 7-point fail-safe checks, and SHA-256 provenance chain.
+  - `06 NeuroLearn Academy (/learn)`: 4 guided interactive teaching laboratories (MRI sequences, BraTS labels, geometry simulation, and failure modes).
+  - `★ Research Graph (/graph)`: Interactive navigable DAG tracing Studies → Runs → Reviews → Experiments → Reports.
 - Help panel documents all of the above; its previous "these are stubs" note is
   gone because it is no longer true.
 
