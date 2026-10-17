@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { SEQUENCES, type SequenceName, type Vec3 } from '../lib/volume'
 import { useStore } from '../state/store'
 import { useStudy } from '../state/study'
+import { useLiveStudy } from '../state/liveStudy'
 import MprPanel from './MprPanel'
 import { meshCentroid } from '../lib/meshing'
 import { worldToVoxel, clampVoxel } from '../lib/volume'
@@ -55,6 +56,7 @@ export default function LinkedMprGrid() {
     windowCenter, windowWidth, resetWindow,
   } = useStore()
   const [compareSeq, setCompareSeq] = useState<SequenceName>('FLAIR')
+  const sequenceWarnings = useLiveStudy((s) => s.sequenceWarnings)
 
   // Agreement needs something to disagree with: the demo phantom always has an
   // expert mask, a live study only when one was uploaded.
@@ -114,7 +116,7 @@ export default function LinkedMprGrid() {
                 className="w-full rounded-md border border-[#263854] bg-[#101a2b] px-2 py-1 text-[11px] font-medium text-white outline-none focus:border-[#3478ff]"
               >
                 {SEQUENCES.map((s) => (
-                  <option key={s} value={s}>{s}</option>
+                  <option key={s} value={s}>{sequenceWarnings[s] ? `⚠ ${s} — flagged` : s}</option>
                 ))}
               </select>
             </div>
@@ -133,12 +135,14 @@ export default function LinkedMprGrid() {
                 <button
                   key={s}
                   onClick={() => setSequence(s)}
-                  className={`rounded px-2.5 py-0.5 text-[10.5px] font-semibold transition ${
+                  title={sequenceWarnings[s] ? `Filename suggested ${sequenceWarnings[s]} at upload — flagged` : undefined}
+                  className={`flex items-center gap-1 rounded px-2.5 py-0.5 text-[10.5px] font-semibold transition ${
                     sequence === s
-                      ? 'bg-[#3478ff] text-white shadow-sm'
-                      : 'text-[#7588a5] hover:text-white'
+                      ? sequenceWarnings[s] ? 'bg-rose-500/80 text-white shadow-sm' : 'bg-[#3478ff] text-white shadow-sm'
+                      : sequenceWarnings[s] ? 'text-rose-400 hover:text-rose-300' : 'text-[#7588a5] hover:text-white'
                   }`}
                 >
+                  {sequenceWarnings[s] && <span>⚠</span>}
                   {s}
                 </button>
               ))}

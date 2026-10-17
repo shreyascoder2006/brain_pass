@@ -5,9 +5,12 @@ import ThreeBrainTwin from '../ThreeBrainTwin'
 import { useStore } from '../../state/store'
 import { useWorkspaceStore } from '../../state/workspaceStore'
 import { useStudyOptional } from '../../state/study'
+import { useLiveStudy } from '../../state/liveStudy'
 
 export default function ViewerWorkspace() {
   const bundle = useStudyOptional()
+  const sequenceWarnings = useLiveStudy((s) => s.sequenceWarnings)
+  const sequenceWarningEntries = Object.entries(sequenceWarnings)
   const voxel = useStore((s) => s.voxel)
   const setVoxel = useStore((s) => s.setVoxel)
   const tool = useStore((s) => s.tool)
@@ -182,6 +185,20 @@ export default function ViewerWorkspace() {
         </div>
       </div>
 
+      {/* Flagged-input banner — set only when the user overrode UploadPanel's
+          filename-mismatch warning. Shown regardless of which base sequence is
+          selected: the model reads all four channels jointly, so a mislabelled
+          one puts the whole result in question, not just its own view. */}
+      {sequenceWarningEntries.length > 0 && (
+        <div className="flex shrink-0 items-center gap-2 border-b border-rose-600/40 bg-rose-950/40 px-3 py-1.5 font-mono text-[10.5px] text-rose-200">
+          <span className="text-[13px]">⚠</span>
+          <span className="font-bold text-rose-300">INPUT FLAGGED AT UPLOAD —</span>
+          <span>
+            {sequenceWarningEntries.map(([slot, guess]) => `${slot} slot looked like ${guess}`).join(', ')}.
+            You chose to proceed; treat this result with reduced confidence.
+          </span>
+        </div>
+      )}
 
       {/* Measurement Mode Floating HUD */}
       {tool === 'measure' && (

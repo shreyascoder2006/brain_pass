@@ -79,13 +79,17 @@ function Dropzone({
 export default function UploadPanel() {
   const open = useStore((s) => s.uploadOpen)
   const setOpen = useStore((s) => s.setUploadOpen)
-  const { status, errors, stage, stageMessage, submit, reset } = useLiveStudy()
+  const { status, errors, stage, stageMessage, submit, reset, setSequenceWarnings } = useLiveStudy()
   const [files, setFiles] = useState<Record<Slot, File | null>>({
     T1: null, T1Gd: null, T2: null, FLAIR: null, expert: null,
   })
   const [serverStatus, setServerStatus] = useState<{ ok: boolean; modelReady: boolean; message: string } | null>(null)
   const [unmatched, setUnmatched] = useState<string[]>([])
   const [bulkOver, setBulkOver] = useState(false)
+  // Set once the user clicks "Run segmentation" with a filename mismatch still
+  // in place, and cleared the moment any file changes — a second click on the
+  // (now-relabelled) button is what actually submits.
+  const [confirmedMismatch, setConfirmedMismatch] = useState(false)
   const checkedOnce = useRef(false)
 
   const applyAutoSort = (picked: File[]) => {
@@ -94,7 +98,25 @@ export default function UploadPanel() {
       setFiles((s) => ({ ...s, ...assigned }))
     }
     setUnmatched(rest.map((f) => f.name))
+    setConfirmedMismatch(false)
   }
+
+  const setFile = (slot: Slot, f: File | null) => {
+    setFiles((s) => ({ ...s, [slot]: f }))
+    setConfirmedMismatch(false)
+  }
+
+  // Filename-only heuristic (see lib/sequenceDetect) against each file actually
+  // placed in a required slot. Never blocks a result or touches the backend —
+  // it's advisory, surfaced before the run and again on the flagged view after.
+  const mismatches: Partial<Record<Slot, Slot>> = {}
+  for (const r of REQUIRED) {
+    const file = files[r.key]
+    if (!file) continue
+    const guess = detectSlot(file.name)
+    if (guess && guess !== r.key) mismatches[r.key] = guess
+  }
+  const hasMismatch = Object.keys(mismatches).length > 0
 
   useEffect(() => {
     if (!open || checkedOnce.current) return
@@ -121,6 +143,11 @@ export default function UploadPanel() {
 
   const run = () => {
     if (!ready) return
+    if (hasMismatch && !confirmedMismatch) {
+      setConfirmedMismatch(true)
+      return
+    }
+    setSequenceWarnings(confirmedMismatch ? mismatches : {})
     submit({
       T1: files.T1!, T1Gd: files.T1Gd!, T2: files.T2!, FLAIR: files.FLAIR!,
       ...(files.expert ? { expert: files.expert } : {}),
@@ -181,13 +208,31 @@ export default function UploadPanel() {
         <div className="grid grid-cols-2 gap-2">
           {REQUIRED.map((r) => (
             <Dropzone key={r.key} slot={r.key} label={r.label} hint={r.hint}
-              file={files[r.key]} onPick={(f) => setFiles((s) => ({ ...s, [r.key]: f }))} />
+              file={files[r.key]} onPick={(f) => setFile(r.key, f)} />
           ))}
         </div>
         <div className="mt-2">
           <Dropzone slot="expert" label="Expert mask" hint="BraTS codes 1/2/4, optional"
-            file={files.expert} onPick={(f) => setFiles((s) => ({ ...s, expert: f }))} optional />
+            file={files.expert} onPick={(f) => setFile('expert', f)} optional />
         </div>
+
+        {hasMismatch && confirmedMismatch && status !== 'uploading' && (
+          <div className="mt-2 space-y-1 rounded-md border border-amber-600/50 bg-amber-500/10 px-2.5 py-2">
+            <div className="text-[11px] font-semibold text-amber-300">
+              Filename mismatch{Object.keys(mismatches).length > 1 ? 'es' : ''} — click "Run anyway" to proceed
+            </div>
+            {Object.entries(mismatches).map(([slot, guess]) => (
+              <div key={slot} className="font-mono text-[10px] text-amber-200/80">
+                {slot} slot: filename looks like {guess}
+              </div>
+            ))}
+            <div className="font-mono text-[10px] text-amber-200/60">
+              The model reads all four sequences together — if one is mislabelled, the whole result
+              is unverified, not just that view. The flagged sequence will be marked invalid in the
+              viewer instead of shown.
+            </div>
+          </div>
+        )}
 
         {status === 'uploading' && (
           <div className="mt-3 rounded-md border border-sky-600/40 bg-sky-500/5 px-2.5 py-2">
@@ -228,7 +273,12 @@ export default function UploadPanel() {
 
         <div className="mt-4 flex items-center justify-between">
           <button
-            onClick={() => { reset(); setFiles({ T1: null, T1Gd: null, T2: null, FLAIR: null, expert: null }); setUnmatched([]) }}
+            onClick={() => {
+              reset()
+              setFiles({ T1: null, T1Gd: null, T2: null, FLAIR: null, expert: null })
+              setUnmatched([])
+              setConfirmedMismatch(false)
+            }}
             className="font-mono text-[10.5px] text-slate-500 hover:text-slate-300"
           >
             back to demo phantom
@@ -236,9 +286,13 @@ export default function UploadPanel() {
           <button
             onClick={run}
             disabled={!ready || status === 'uploading'}
-            className="rounded-md border border-sky-500/50 bg-sky-500/10 px-3.5 py-1.5 text-[11.5px] font-medium text-sky-300 transition hover:bg-sky-500/20 disabled:cursor-not-allowed disabled:opacity-40"
+            className={`rounded-md border px-3.5 py-1.5 text-[11.5px] font-medium transition disabled:cursor-not-allowed disabled:opacity-40 ${
+              hasMismatch && confirmedMismatch
+                ? 'border-amber-500/60 bg-amber-500/15 text-amber-300 hover:bg-amber-500/25'
+                : 'border-sky-500/50 bg-sky-500/10 text-sky-300 hover:bg-sky-500/20'
+            }`}
           >
-            {status === 'uploading' ? 'Processing…' : 'Run segmentation'}
+            {status === 'uploading' ? 'Processing…' : hasMismatch && confirmedMismatch ? 'Run anyway' : 'Run segmentation'}
           </button>
         </div>
       </div>

@@ -3,6 +3,7 @@ import { edgeLetters, PLANES } from '../lib/planes'
 import type { PlaneKey } from '../state/store'
 import { useStore } from '../state/store'
 import { useStudy } from '../state/study'
+import { useLiveStudy } from '../state/liveStudy'
 import { axisOrientation, voxelToWorld, type SequenceName, type Vec3 } from '../lib/volume'
 
 const CODE_COLOUR: Record<number, [number, number, number]> = {
@@ -72,6 +73,11 @@ export default function MprPanel({
   const letters = edgeLetters(def, study.affine)
   const slice = voxel[def.fixed]
   const label = maskSource === 'predicted' ? study.predicted : study.expert
+
+  // Set only when the user overrode UploadPanel's filename-mismatch warning —
+  // see state/liveStudy.ts. Advisory, client-side only; the backend's own
+  // validation (shape/affine/NaN/etc.) is untouched and stays all-or-nothing.
+  const flaggedGuess = useLiveStudy((s) => s.sequenceWarnings[seq])
 
   useEffect(() => {
     const el = wrapRef.current
@@ -309,12 +315,19 @@ export default function MprPanel({
         active ? 'border-[#32d5ff] shadow-sm shadow-[#32d5ff]/20' : 'border-[#263854]'
       }`}
     >
-      <div className="flex shrink-0 items-center justify-between border-b border-[#263854] bg-[#0a1020] px-2.5 py-1.5">
+      <div className={`flex shrink-0 items-center justify-between border-b px-2.5 py-1.5 ${
+        flaggedGuess ? 'border-rose-600/50 bg-rose-950/40' : 'border-[#263854] bg-[#0a1020]'
+      }`}>
         <div className="flex items-baseline gap-2">
           <span className="text-[12px] font-bold text-white capitalize">{title ?? def.label}</span>
           <span className="font-mono text-[10.5px] font-semibold text-[#32d5ff]">
             {def.fixed === 0 ? 'X' : def.fixed === 1 ? 'Y' : 'Z'} = {slice} / {study.dims[def.fixed] - 1}
           </span>
+          {flaggedGuess && (
+            <span className="rounded bg-rose-500/20 px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wide text-rose-300">
+              ⚠ invalid
+            </span>
+          )}
         </div>
         {headerRight ?? (
           <span className="font-mono text-[10px] text-[#a4b5ce]">
@@ -327,9 +340,11 @@ export default function MprPanel({
       <div
         ref={wrapRef}
         className={`relative min-h-0 flex-1 select-none ${
-          tool === 'measure' ? 'cursor-cell' : tool === 'window' ? 'cursor-ns-resize' : 'cursor-crosshair'
+          flaggedGuess ? 'cursor-default'
+          : tool === 'measure' ? 'cursor-cell' : tool === 'window' ? 'cursor-ns-resize' : 'cursor-crosshair'
         }`}
         onPointerDown={(e) => {
+          if (flaggedGuess) return
           ;(e.target as Element).setPointerCapture?.(e.pointerId)
           setActivePanel(plane)
           if (tool === 'window') {
@@ -345,6 +360,7 @@ export default function MprPanel({
           pick(e.clientX, e.clientY)
         }}
         onPointerMove={(e) => {
+          if (flaggedGuess) return
           if (windowDrag.current) {
             // The radiology convention: drag across to widen, up to brighten.
             const d = windowDrag.current
@@ -360,13 +376,26 @@ export default function MprPanel({
         onPointerLeave={() => { dragging.current = false; windowDrag.current = null }}
         onWheel={onWheel}
       >
-        <canvas
-          ref={canvasRef}
-          id={compact ? undefined : `mpr-canvas-${plane}`}
-          className="block h-full w-full"
-          style={{ width: '100%', height: '100%' }}
-        />
+        {flaggedGuess ? (
+          <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-[#1a0f12] px-4 text-center">
+            <span className="text-[24px]">⚠️</span>
+            <span className="text-[12px] font-bold uppercase tracking-wide text-rose-400">Invalid input</span>
+            <span className="max-w-[230px] font-mono text-[10px] leading-relaxed text-rose-200/70">
+              Labelled {seq}, but its filename suggested {flaggedGuess} at upload. Flagged by the user
+              at the upload-confirmation step — not displayed.
+            </span>
+          </div>
+        ) : (
+          <canvas
+            ref={canvasRef}
+            id={compact ? undefined : `mpr-canvas-${plane}`}
+            className="block h-full w-full"
+            style={{ width: '100%', height: '100%' }}
+          />
+        )}
 
+        {!flaggedGuess && (
+        <>
         <span className="pointer-events-none absolute left-1.5 top-1/2 -translate-y-1/2 font-mono text-[10px] font-semibold text-slate-400">
           {letters.left}
         </span>
@@ -383,6 +412,8 @@ export default function MprPanel({
           <span className="pointer-events-none absolute bottom-1 right-1.5 font-mono text-[9px] text-slate-600">
             {study.spacing[def.hAxis].toFixed(2)}×{study.spacing[def.vAxis].toFixed(2)} mm/px
           </span>
+        )}
+        </>
         )}
       </div>
 
