@@ -1,6 +1,11 @@
 /** Client for the local FastAPI server in backend/server — see backend/server/main.py. */
 
-const BASE = 'http://127.0.0.1:8008'
+const BASE =
+  typeof window !== 'undefined' &&
+  window.location.hostname !== 'localhost' &&
+  window.location.hostname !== '127.0.0.1'
+    ? ''
+    : 'http://127.0.0.1:8008'
 
 export interface RegionVolume {
   voxels: number
