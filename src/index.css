@@ -90,3 +90,33 @@ input[type='range'].vertical {
 }
 .pulse-ring { animation: pulse-ring 2s ease-in-out infinite; }
 
+/* #print-root is a plain child of <body> (see index.html), rendered into via
+   a portal from ReportModal. Printing only ever shows this node, never #root
+   — so the report is never nested inside the modal's `position: fixed`
+   wrapper, which previously became its containing block and clipped
+   everything past one viewport height. A plain block element under <body>
+   has no height/overflow constraint, so the browser paginates it normally. */
+#print-root {
+  display: none;
+}
+
+@media print {
+  html, body {
+    height: auto !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+  }
+  #root {
+    display: none !important;
+  }
+  #print-root {
+    display: block !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  @page {
+    margin: 14mm 12mm;
+  }
+}
+

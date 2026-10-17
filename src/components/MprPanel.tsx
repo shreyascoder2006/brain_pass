@@ -360,7 +360,12 @@ export default function MprPanel({
         onPointerLeave={() => { dragging.current = false; windowDrag.current = null }}
         onWheel={onWheel}
       >
-        <canvas ref={canvasRef} className="block h-full w-full" style={{ width: '100%', height: '100%' }} />
+        <canvas
+          ref={canvasRef}
+          id={compact ? undefined : `mpr-canvas-${plane}`}
+          className="block h-full w-full"
+          style={{ width: '100%', height: '100%' }}
+        />
 
         <span className="pointer-events-none absolute left-1.5 top-1/2 -translate-y-1/2 font-mono text-[10px] font-semibold text-slate-400">
           {letters.left}

@@ -1,4 +1,3 @@
-import { reportUrl } from '../lib/api'
 import { PATIENT_PERSONAS } from '../lib/personas'
 import { useLiveStudy } from '../state/liveStudy'
 import { useStudyOptional } from '../state/study'
@@ -6,10 +5,16 @@ import { useStore } from '../state/store'
 import { useWorkspaceStore } from '../state/workspaceStore'
 
 export default function TopBar() {
+  // Always null here — TopBar sits outside every <StudyProvider>, which only
+  // wraps the viewer/review/trust workspaces. Only use it for the case label
+  // (best-effort, fine if it's null); the Report button must not depend on it
+  // or it can never enable from here. ReportModal lives inside the provider
+  // and reads the real bundle itself.
   const bundle = useStudyOptional()
   const setUploadOpen = useStore((s) => s.setUploadOpen)
   const setDatasetsOpen = useStore((s) => s.setDatasetsOpen)
   const setPersonasOpen = useStore((s) => s.setPersonasOpen)
+  const setReportOpen = useStore((s) => s.setReportOpen)
   const reset = useLiveStudy((s) => s.reset)
   const runSample = useLiveStudy((s) => s.runSample)
 
@@ -115,10 +120,9 @@ export default function TopBar() {
         </button>
 
         <button
-          onClick={() => bundle?.mode === 'live' && bundle.jobId && window.open(reportUrl(bundle.jobId), '_blank')}
-          disabled={bundle?.mode !== 'live'}
-          title={bundle?.mode === 'live' ? 'Open provenance report' : 'Upload or run live study to view report'}
-          className="flex items-center gap-1.5 rounded-md border border-[#263854] bg-[#101a2b] px-3 py-1.5 text-[11px] font-medium text-[#a4b5ce] transition hover:border-[#3478ff] hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+          onClick={() => setReportOpen(true)}
+          title="Open report — a live study opens its backend provenance report; a persona case opens a generated report"
+          className="flex items-center gap-1.5 rounded-md border border-[#263854] bg-[#101a2b] px-3 py-1.5 text-[11px] font-medium text-[#a4b5ce] transition hover:border-[#3478ff] hover:text-white"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-3.5 w-3.5">
             <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />

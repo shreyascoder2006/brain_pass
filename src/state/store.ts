@@ -91,6 +91,17 @@ interface State {
 
   helpOpen: boolean
   setHelpOpen: (open: boolean) => void
+
+  /** client-rendered report for a demo-mode persona case (live-mode cases use
+   *  the backend's own report page instead; see TopBar). */
+  reportOpen: boolean
+  setReportOpen: (open: boolean) => void
+
+  /** true only while ReportModal is capturing the 3D view — the long crosshair
+   *  lines read as navigation chrome, not something a static report image
+   *  should show. */
+  hideCrosshair: boolean
+  setHideCrosshair: (hide: boolean) => void
 }
 
 export const useStore = create<State>((set) => ({
@@ -159,4 +170,10 @@ export const useStore = create<State>((set) => ({
 
   helpOpen: false,
   setHelpOpen: (helpOpen) => set({ helpOpen }),
+
+  reportOpen: false,
+  setReportOpen: (reportOpen) => set({ reportOpen }),
+
+  hideCrosshair: false,
+  setHideCrosshair: (hideCrosshair) => set({ hideCrosshair }),
 }))

@@ -4,6 +4,7 @@ import DisclaimerBanner from './components/DisclaimerBanner'
 import HelpPanel from './components/HelpPanel'
 import PersonasModal from './components/PersonasModal'
 import NavigationSidebar from './components/NavigationSidebar'
+import ReportModal from './components/ReportModal'
 import TopBar from './components/TopBar'
 import UploadPanel from './components/UploadPanel'
 import CommandCentreWorkspace from './components/workspaces/CommandCentreWorkspace'
@@ -69,6 +70,7 @@ export default function App() {
           {activeWorkspace === 'viewer' && (
             <StudyProvider fallback={(stage) => <Loading stage={stage} />}>
               <ViewerWorkspace />
+              <ReportModal />
             </StudyProvider>
           )}
 

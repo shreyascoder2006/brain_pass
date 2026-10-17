@@ -36,6 +36,23 @@ export function countVoxels(mask: Uint8Array): number {
   return n
 }
 
+/** Mean voxel index of a mask's set voxels; falls back to the volume centre when empty. */
+export function centroidVoxel(mask: Uint8Array, dims: Vec3): Vec3 {
+  const [nx, ny, nz] = dims
+  let n = 0, si = 0, sj = 0, sk = 0
+  for (let k = 0; k < nz; k++) {
+    for (let j = 0; j < ny; j++) {
+      const row = nx * (j + ny * k)
+      for (let i = 0; i < nx; i++) {
+        if (!mask[row + i]) continue
+        n++; si += i; sj += j; sk += k
+      }
+    }
+  }
+  if (n === 0) return [dims[0] / 2, dims[1] / 2, dims[2] / 2]
+  return [si / n, sj / n, sk / n]
+}
+
 export function volumeML(voxels: number, spacing: Vec3): number {
   return (voxels * voxelVolumeMm3(spacing)) / 1000
 }

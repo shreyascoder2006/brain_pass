@@ -3,6 +3,7 @@ import { GizmoHelper, GizmoViewcube, OrbitControls } from '@react-three/drei'
 import { Bloom, EffectComposer, Vignette } from '@react-three/postprocessing'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
+import { captureRegistry } from '../lib/captureRegistry'
 import { meshCentroid } from '../lib/meshing'
 import { REGIONS, type RegionKey } from '../lib/regions'
 import type { Mesh as IsoMesh } from '../lib/surfaceNets'
@@ -428,7 +429,7 @@ function Scene({
   const { study, brainMesh, meshes, lattices } = useStudy()
   const {
     regions, brainVisible, brainOpacity, isolated, setIsolated,
-    wireframe, voxel, maskSource, autoOrbit, setAutoOrbit,
+    wireframe, voxel, maskSource, autoOrbit, setAutoOrbit, hideCrosshair,
   } = useStore()
 
   const activeMeshes = meshes[maskSource]
@@ -497,7 +498,9 @@ function Scene({
         )
       })}
 
-      <Crosshair3D position={crosshairWorld as [number, number, number]} extent={isolated ? 60 : 150} />
+      {!hideCrosshair && (
+        <Crosshair3D position={crosshairWorld as [number, number, number]} extent={isolated ? 60 : 150} />
+      )}
 
       {visMode !== 'surface' && study.persona?.tumour && (
         <TumourBeacon
@@ -585,9 +588,10 @@ export default function ThreeBrainTwin() {
     >
       <Canvas
         dpr={[1, 2]}
-        gl={{ antialias: true, alpha: true }}
+        gl={{ antialias: true, alpha: true, preserveDrawingBuffer: true }}
         camera={{ position: [30, 180, 330], up: [0, 0, 1], fov: 36, near: 1, far: 4000 }}
         onPointerMissed={() => setIsolated(null)}
+        onCreated={(state) => { captureRegistry.threeCanvas = state.gl.domElement }}
       >
         <Scene visMode={visMode} showNerves={showNerves} presetOrientation={presetOrientation} />
       </Canvas>

@@ -9,6 +9,11 @@
 
 <body>
   <div id="root"></div>
+  <!-- Print target for ReportModal: a portal renders the report here, as a
+       direct child of body with no fixed/scrollable ancestor to clip it, so
+       the browser's print engine can paginate it across as many pages as it
+       needs. See the @media print rules in src/index.css. -->
+  <div id="print-root"></div>
   <script type="module" src="/src/main.tsx"></script>
 </body>
 
