@@ -86,6 +86,9 @@ interface State {
   datasetsOpen: boolean
   setDatasetsOpen: (open: boolean) => void
 
+  personasOpen: boolean
+  setPersonasOpen: (open: boolean) => void
+
   helpOpen: boolean
   setHelpOpen: (open: boolean) => void
 }
@@ -150,6 +153,9 @@ export const useStore = create<State>((set) => ({
 
   datasetsOpen: false,
   setDatasetsOpen: (datasetsOpen) => set({ datasetsOpen }),
+
+  personasOpen: false,
+  setPersonasOpen: (personasOpen) => set({ personasOpen }),
 
   helpOpen: false,
   setHelpOpen: (helpOpen) => set({ helpOpen }),

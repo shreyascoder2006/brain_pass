@@ -6,79 +6,61 @@ import QualityCentre from './QualityCentre'
 
 function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={`min-w-0 rounded-md border border-edge bg-panel-2/60 px-3 py-2 ${className}`}>
+    <div className={`min-w-0 rounded-lg border border-[#263854] bg-[#0a1020] p-3 shadow-md shadow-black/20 ${className}`}>
       {children}
     </div>
   )
 }
 
 function RegionCard({ k }: { k: RegionKey }) {
-  const { report, study, liveMetadata, mode } = useStudy()
+  const { report, study } = useStudy()
   const { maskSource, setIsolated, isolated } = useStore()
   const r = report[k]
   const shown = maskSource === 'expert' ? r.expertML : r.predML
   const voxels = maskSource === 'expert' ? r.expertVoxels : r.predVoxels
   const [dx, dy, dz] = study.spacing
-  const conn = mode === 'live' ? liveMetadata?.connectivity?.[k] : null
-  const unc = mode === 'live' ? liveMetadata?.uncertainty?.[k] : null
-  const geo = mode === 'live' ? liveMetadata?.geometry?.[k] : null
 
   return (
     <button
       onClick={() => setIsolated(isolated === k ? null : k)}
-      className={`min-w-0 rounded-md border bg-panel-2/60 px-3 py-2 text-left transition hover:bg-panel-2 ${
-        isolated === k ? 'border-sky-500/60' : 'border-edge'
+      className={`relative min-w-0 rounded-lg border p-3 text-left transition hover:border-[#3478ff] shadow-md shadow-black/20 ${
+        isolated === k
+          ? 'border-[#32d5ff] bg-[#101a2b] ring-1 ring-[#32d5ff]'
+          : 'border-[#263854] bg-[#0a1020]'
       }`}
     >
-      <div className="flex items-center gap-1.5">
-        <span className="h-2 w-2 shrink-0 rounded-[2px]" style={{ background: r.def.colour }} />
-        <span className="truncate text-[11px] font-medium text-slate-300">
+      {/* Mini brain silhouette icon on top-right matching UI Sample 2 */}
+      <span className="absolute right-3 top-3 text-[#263854] transition group-hover:text-[#3478ff]">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-5 w-5">
+          <path d="M12 4a4 4 0 00-4 4 3 3 0 00-1 5.8V16a3 3 0 003 3h4a3 3 0 003-3v-2.2A3 3 0 0016 8a4 4 0 00-4-4z" />
+        </svg>
+      </span>
+
+      <div className="flex items-center gap-2">
+        <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: r.def.colour }} />
+        <span className="truncate text-[12px] font-semibold text-white">
           {r.def.label} ({r.def.short})
         </span>
       </div>
-      <div className="mt-0.5 flex items-baseline gap-1.5">
-        <span className="font-mono text-[19px] font-semibold leading-none text-slate-50">
+
+      <div className="mt-1 flex items-baseline gap-1.5">
+        <span className="font-mono text-[24px] font-bold tracking-tight text-white">
           {shown.toFixed(2)}
         </span>
-        <span className="text-[11px] text-slate-400">mL</span>
-        {maskSource === 'predicted' && (
-          <span className="ml-auto truncate font-mono text-[9.5px] text-slate-500">
-            expert {r.expertML.toFixed(2)}
-          </span>
-        )}
+        <span className="text-[12px] font-medium text-[#a4b5ce]">mL</span>
       </div>
-      <div className="mt-1 truncate font-mono text-[9px] leading-[1.5] text-slate-500">
-        {voxels.toLocaleString()} vox × ({dx}×{dy}×{dz}) / 1000
+
+      <div className="mt-1 font-mono text-[10px] text-[#7588a5] truncate">
+        {voxels.toLocaleString()} vox ({dx.toFixed(2)}×{dy.toFixed(2)}×{dz.toFixed(2)})
       </div>
-      <div className="truncate font-mono text-[9px] text-slate-600">
+
+      <div className="mt-0.5 font-mono text-[10px] text-[#a4b5ce]">
         {(r.fractionOfBrain * 100).toFixed(2)}% of brain volume
       </div>
-      {conn && conn.component_count > 0 && (
-        <div className="mt-1 truncate font-mono text-[9px] text-slate-500">
-          {conn.component_count === 1
-            ? '● single connected mass'
-            : `● ${conn.component_count} disconnected regions, largest ${(conn.largest_fraction * 100).toFixed(0)}%`}
-        </div>
-      )}
-      {geo && geo.max_diameter_mm > 0 && (
-        <div
-          className="truncate font-mono text-[9px] text-slate-500"
-          title={`${geo.max_diameter_definition}. Surface area: ${geo.surface_area_definition}.`}
-        >
-          ⌀ {geo.max_diameter_mm.toFixed(1)} mm · {Math.round(geo.surface_area_mm2).toLocaleString()} mm² surface
-        </div>
-      )}
-      {unc && (
-        <div
-          className="truncate font-mono text-[9px] text-sky-500/70"
-          title="Flip-TTA probability standard deviation — a measured disagreement signal, not a calibrated confidence probability. Low σ does not guarantee correctness."
-        >
-          confidence: mean σ {unc.mean.toFixed(3)} · boundary max σ {unc.max.toFixed(3)}
-        </div>
-      )}
     </button>
   )
 }
+
 
 export default function BottomMetricsBar() {
   const { report, sha256, mode, liveMetadata } = useStudy()
@@ -113,47 +95,52 @@ export default function BottomMetricsBar() {
   }
 
   return (
-    <div className="flex min-h-0 flex-col rounded-lg border border-edge bg-panel">
-      <div className="flex shrink-0 items-center justify-between border-b border-edge px-3 py-1.5">
-        <h2 className="text-[12.5px] font-semibold tracking-tight text-slate-200">
-          Volumetrics &amp; Accuracy Metrics
-        </h2>
-        <span className="font-mono text-[9.5px] text-slate-600">
+    <div className="flex min-h-0 flex-col rounded-lg border border-[#263854] bg-[#0a1020] shadow-lg shadow-black/30">
+      <div className="flex shrink-0 items-center justify-between border-b border-[#263854] px-3.5 py-2">
+        <div className="flex items-center gap-2">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#32d5ff" strokeWidth={2.2} className="h-4 w-4">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+          </svg>
+          <h2 className="text-[13px] font-bold tracking-tight text-white">
+            Volumetrics &amp; Accuracy Metrics
+          </h2>
+        </div>
+        <span className="font-mono text-[9.5px] text-[#7588a5]">
           showing {maskSource === 'expert' ? 'expert annotation' : 'model prediction'} · sha256 {sha256.slice(0, 12)}…
         </span>
       </div>
 
-      <div className="grid grid-cols-[repeat(3,minmax(0,1fr))_minmax(0,1.05fr)_minmax(0,0.95fr)] gap-2 p-2">
+      <div className="grid grid-cols-[repeat(3,minmax(0,1fr))_minmax(0,1.1fr)_minmax(0,0.9fr)] gap-2.5 p-2.5">
         <RegionCard k="WT" />
         <RegionCard k="TC" />
         <RegionCard k="ET" />
 
         <Card>
-          <div className="text-[11px] font-medium text-slate-300">Accuracy vs expert mask</div>
+          <div className="text-[12px] font-semibold text-white">Accuracy vs expert mask</div>
           {hasExpert ? (
-            <div className="mt-1 grid grid-cols-4 gap-x-2 font-mono text-[10px]">
-              <span className="text-slate-600" />
-              <span className="text-slate-500">Dice</span>
-              <span className="text-slate-500">Sens.</span>
-              <span className="text-slate-500" title="95th-percentile Hausdorff distance — boundary disagreement in mm, not overlap. Null when either mask is empty.">HD95</span>
+            <div className="mt-1.5 grid grid-cols-4 gap-x-2 font-mono text-[10.5px]">
+              <span className="text-[#7588a5]" />
+              <span className="text-[#7588a5] font-semibold">Dice</span>
+              <span className="text-[#7588a5] font-semibold">Sens.</span>
+              <span className="text-[#7588a5] font-semibold" title="95th-percentile Hausdorff distance (mm)">HD95</span>
               {REGIONS.map((d) => (
                 <Fragmented key={d.key} colour={d.colour} short={d.short}
                   dice={report[d.key].metric.dice} sens={report[d.key].metric.sensitivity}
                   hd95={hd95ByRegion?.[d.key]?.hd95_mm} />
               ))}
-              <span className="mt-0.5 border-t border-edge pt-0.5 text-slate-400">mean</span>
-              <span className="mt-0.5 border-t border-edge pt-0.5 font-semibold text-emerald-400">
+              <span className="mt-1 border-t border-[#263854] pt-1 text-[#a4b5ce] font-semibold">mean</span>
+              <span className="mt-1 border-t border-[#263854] pt-1 font-bold text-[#10b981]">
                 {meanDice.toFixed(3)}
               </span>
-              <span className="mt-0.5 border-t border-edge pt-0.5 font-semibold text-emerald-400">
+              <span className="mt-1 border-t border-[#263854] pt-1 font-bold text-[#10b981]">
                 {meanSens.toFixed(3)}
               </span>
-              <span className="mt-0.5 border-t border-edge pt-0.5 font-semibold text-emerald-400">
+              <span className="mt-1 border-t border-[#263854] pt-1 font-bold text-[#a4b5ce]">
                 {meanHd95 != null ? `${meanHd95.toFixed(1)}mm` : '—'}
               </span>
             </div>
           ) : (
-            <div className="mt-1.5 font-mono text-[10px] text-slate-500">
+            <div className="mt-1.5 font-mono text-[10px] text-[#7588a5]">
               No expert mask was provided for this study.
             </div>
           )}
@@ -161,13 +148,13 @@ export default function BottomMetricsBar() {
           {biggestMiss && (
             <button
               onClick={jumpToMiss}
-              title="Move the crosshair to the centre of the largest region the expert marked and the model did not, and switch the slice views to the agreement overlay."
-              className="mt-1.5 flex w-full items-center justify-between gap-2 rounded border border-edge px-1.5 py-1 text-left transition hover:border-rose-500/50 hover:bg-rose-500/5"
+              title="Move crosshair to largest miss"
+              className="mt-2 flex w-full items-center justify-between gap-2 rounded border border-[#263854] bg-[#101a2b] px-2 py-1 text-left transition hover:border-[#f43f5e] hover:bg-[#f43f5e]/10"
             >
-              <span className="truncate font-mono text-[9.5px] text-slate-400">
+              <span className="truncate font-mono text-[10px] text-[#a4b5ce]">
                 largest miss · {biggestMiss.key} {biggestMiss.largest_miss_volume_ml.toFixed(2)} mL
               </span>
-              <span className="shrink-0 font-mono text-[9.5px] text-rose-400">go →</span>
+              <span className="shrink-0 font-mono text-[10px] font-bold text-[#f43f5e]">go →</span>
             </button>
           )}
         </Card>
@@ -177,6 +164,7 @@ export default function BottomMetricsBar() {
     </div>
   )
 }
+
 
 function Fragmented({ colour, short, dice, sens, hd95 }: {
   colour: string; short: string; dice: number; sens: number; hd95?: number | null

@@ -1,0 +1,34 @@
+{
+  "id": "case_10_large_diffuse_infiltrative",
+  "name": "Extensive Infiltrative Oligodendroglioma",
+  "clinical_presentation": "Very large diffuse infiltrative mass spanning multiple lobes with massive T2/FLAIR abnormality and high whole-tumor to tumor-core volume ratio.",
+  "tumor_location": "Right Fronto-Parietal Region (+x, +y, +z)",
+  "metrics": {
+    "whole_tumor_ml": 179.0,
+    "tumor_core_ml": 22.6,
+    "enhancing_tumor_ml": 19.77,
+    "edema_ml": 156.4
+  },
+  "centroid_slice": {
+    "x": 95,
+    "y": 92,
+    "z": 89
+  },
+  "matrix_shape": [
+    144,
+    176,
+    144
+  ],
+  "voxel_spacing_mm": [
+    1.0,
+    1.0,
+    1.0
+  ],
+  "files": [
+    "T1.nii.gz",
+    "T1Gd.nii.gz",
+    "T2.nii.gz",
+    "FLAIR.nii.gz",
+    "label.nii.gz"
+  ]
+}

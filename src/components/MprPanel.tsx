@@ -6,9 +6,9 @@ import { useStudy } from '../state/study'
 import { axisOrientation, voxelToWorld, type SequenceName, type Vec3 } from '../lib/volume'
 
 const CODE_COLOUR: Record<number, [number, number, number]> = {
-  1: [242, 167, 92],  // NCR -> amber (tumour core)
-  2: [79, 201, 166],  // ED  -> teal  (whole tumour)
-  4: [232, 115, 142], // ET  -> rose  (enhancing)
+  1: [245, 158, 11],  // NCR -> amber (tumour core)
+  2: [16, 185, 129],  // ED  -> teal-green (whole tumour)
+  4: [244, 63, 94],   // ET  -> coral-pink (enhancing)
 }
 
 /** Confidence heat ramp: blue (agreement) through cyan/yellow to red (disagreement). */
@@ -204,12 +204,12 @@ export default function MprPanel({
       }
     }
 
-    // Crosshair
+    // Crosshair in electric cyan
     const { cx, cy } = project(voxel)
     const gap = 7
 
     ctx.lineWidth = 1
-    ctx.strokeStyle = 'rgba(125, 211, 252, 0.85)'
+    ctx.strokeStyle = 'rgba(50, 213, 255, 0.9)'
     ctx.beginPath()
     ctx.moveTo(x, cy); ctx.lineTo(cx - gap, cy)
     ctx.moveTo(cx + gap, cy); ctx.lineTo(x + drawW, cy)
@@ -217,7 +217,7 @@ export default function MprPanel({
     ctx.moveTo(cx, cy + gap); ctx.lineTo(cx, y + drawH)
     ctx.stroke()
 
-    ctx.strokeStyle = 'rgba(125, 211, 252, 0.55)'
+    ctx.strokeStyle = 'rgba(50, 213, 255, 0.65)'
     ctx.beginPath()
     ctx.arc(cx, cy, 3.2, 0, Math.PI * 2)
     ctx.stroke()
@@ -305,19 +305,19 @@ export default function MprPanel({
 
   return (
     <div
-      className={`flex h-full min-h-0 flex-col overflow-hidden rounded-md border bg-[#0a0e14] transition-colors ${
-        active ? 'border-emerald-500/70' : 'border-edge'
+      className={`flex h-full min-h-0 flex-col overflow-hidden rounded-lg border bg-[#05070d] transition-colors ${
+        active ? 'border-[#32d5ff] shadow-sm shadow-[#32d5ff]/20' : 'border-[#263854]'
       }`}
     >
-      <div className="flex shrink-0 items-center justify-between border-b border-edge-soft bg-panel px-2.5 py-1.5">
-        <div className="flex items-baseline gap-1.5">
-          <span className="text-[11.5px] font-medium text-slate-200">{title ?? def.label}</span>
-          <span className="font-mono text-[10px] text-sky-400">
+      <div className="flex shrink-0 items-center justify-between border-b border-[#263854] bg-[#0a1020] px-2.5 py-1.5">
+        <div className="flex items-baseline gap-2">
+          <span className="text-[12px] font-bold text-white capitalize">{title ?? def.label}</span>
+          <span className="font-mono text-[10.5px] font-semibold text-[#32d5ff]">
             {def.fixed === 0 ? 'X' : def.fixed === 1 ? 'Y' : 'Z'} = {slice} / {study.dims[def.fixed] - 1}
           </span>
         </div>
         {headerRight ?? (
-          <span className="font-mono text-[9.5px] text-slate-500">
+          <span className="font-mono text-[10px] text-[#a4b5ce]">
             {seq} · {sliceMm.toFixed(1)} mm
           </span>
         )}

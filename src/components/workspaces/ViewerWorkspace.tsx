@@ -58,82 +58,130 @@ export default function ViewerWorkspace() {
     setTimeout(() => setCopiedSnapshot(false), 2000)
   }
 
+  const setPersonasOpen = useStore((s) => s.setPersonasOpen)
+
   return (
-    <div className="flex h-full flex-col bg-ink">
-      {/* Top Studio Toolbar */}
-      <div className="flex shrink-0 items-center justify-between border-b border-edge/80 bg-panel px-3 py-1.5 text-[11px]">
-        <div className="flex items-center gap-2">
-          <span className="font-semibold text-slate-200">3D Digital Twin & MPR Studio</span>
-          <span className="text-slate-600">|</span>
-          <span className="font-mono text-[10px] text-slate-400">
-            Voxel: [{voxel[0]}, {voxel[1]}, {voxel[2]}]
-          </span>
-          {bundle && (
-            <span className="font-mono text-[10px] text-sky-400">
-              Spacing: {bundle.study.spacing.map((s) => s.toFixed(2)).join('×')} mm
-            </span>
-          )}
+    <div className="flex h-full flex-col bg-[#05070d]">
+      {/* Top Studio Toolbar matching UI Sample 2 */}
+      <div className="flex h-11 shrink-0 items-center justify-between border-b border-[#263854] bg-[#0a1020] px-3 text-[11.5px]">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 rounded-md bg-[#3478ff]/15 px-2.5 py-1 text-[#32d5ff] font-semibold border border-[#3478ff]/40 shadow-sm shadow-[#3478ff]/10">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} className="h-4 w-4">
+              <path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z" strokeLinejoin="round" />
+              <path d="M12 12l8-4.5M12 12v9M12 12L4 7.5" strokeLinejoin="round" />
+            </svg>
+            <span>3D Digital Twin &amp; MPR Studio</span>
+          </div>
+
+          <div className="flex items-center gap-2 font-mono text-[11px] text-[#a4b5ce]">
+            <span>Voxel: <strong className="text-white">[{voxel[0]}, {voxel[1]}, {voxel[2]}]</strong></span>
+            {bundle && (
+              <>
+                <span className="text-[#263854]">|</span>
+                <span className="text-[#32d5ff]">
+                  Spacing: {bundle.study.spacing.map((s) => s.toFixed(2)).join('×')} mm
+                </span>
+              </>
+            )}
+          </div>
         </div>
 
+        {/* Right Tools Group matching UI Sample 2 */}
         <div className="flex items-center gap-2">
           {/* Tool switchers */}
-          <div className="flex rounded border border-edge bg-panel-2 p-0.5">
-            <button
-              onClick={() => setTool('crosshair')}
-              className={`rounded px-2 py-0.5 font-medium transition ${
-                tool === 'crosshair' ? 'bg-sky-500/20 text-sky-300' : 'text-slate-400 hover:text-slate-200'
-              }`}
-              title="Navigate crosshair (Shortcut: C)"
-            >
-              Crosshair
-            </button>
-            <button
-              onClick={() => setTool('measure')}
-              className={`rounded px-2 py-0.5 font-medium transition ${
-                tool === 'measure' ? 'bg-sky-500/20 text-sky-300' : 'text-slate-400 hover:text-slate-200'
-              }`}
-              title="Calibrated Distance Measure (Shortcut: M)"
-            >
-              Measure
-            </button>
-            <button
-              onClick={() => setTool('window')}
-              className={`rounded px-2 py-0.5 font-medium transition ${
-                tool === 'window' ? 'bg-sky-500/20 text-sky-300' : 'text-slate-400 hover:text-slate-200'
-              }`}
-              title="PACS Window/Level Contrast (Shortcut: W)"
-            >
-              Window/Level
-            </button>
-          </div>
+          <button
+            onClick={() => setTool('crosshair')}
+            className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-semibold transition ${
+              tool === 'crosshair'
+                ? 'border border-[#32d5ff] bg-[#32d5ff]/15 text-[#32d5ff] shadow-sm shadow-[#32d5ff]/20'
+                : 'border border-[#263854] bg-[#101a2b] text-[#a4b5ce] hover:border-[#3478ff] hover:text-white'
+            }`}
+            title="Crosshair Navigation (C)"
+          >
+            <span className="text-[12px]">+</span>
+            <span>Crosshair</span>
+          </button>
+
+          <button
+            onClick={() => setTool('measure')}
+            className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-medium transition ${
+              tool === 'measure'
+                ? 'border border-[#32d5ff] bg-[#32d5ff]/15 text-[#32d5ff] shadow-sm shadow-[#32d5ff]/20'
+                : 'border border-[#263854] bg-[#101a2b] text-[#a4b5ce] hover:border-[#3478ff] hover:text-white'
+            }`}
+            title="Distance Caliper Measure (M)"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-3.5 w-3.5">
+              <path d="M3 15l6-6 6 6-6 6-6-6zm9-9l6 6M15 9l1.5-1.5" />
+            </svg>
+            <span>Measure</span>
+          </button>
+
+          <button
+            onClick={() => setTool('window')}
+            className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-medium transition ${
+              tool === 'window'
+                ? 'border border-[#32d5ff] bg-[#32d5ff]/15 text-[#32d5ff] shadow-sm shadow-[#32d5ff]/20'
+                : 'border border-[#263854] bg-[#101a2b] text-[#a4b5ce] hover:border-[#3478ff] hover:text-white'
+            }`}
+            title="PACS Window/Level Contrast (W)"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-3.5 w-3.5">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 3v18" />
+            </svg>
+            <span>Window/Level</span>
+          </button>
+
+          <button
+            onClick={() => {
+              useStore.getState().setAutoOrbit(!useStore.getState().autoOrbit)
+            }}
+            className={`flex items-center gap-1.5 rounded-md border border-[#263854] bg-[#101a2b] px-2.5 py-1 text-[11px] font-medium text-[#a4b5ce] transition hover:border-[#3478ff] hover:text-white`}
+            title="Camera Orbit Toggle"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-3.5 w-3.5">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19 12a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <span>Camera</span>
+          </button>
 
           <button
             onClick={() => setShowBookmarks(!showBookmarks)}
-            className={`rounded border px-2 py-1 font-medium transition ${
+            className={`flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11px] font-medium transition ${
               showBookmarks
-                ? 'border-sky-500/50 bg-sky-500/20 text-sky-200'
-                : 'border-edge bg-panel-2 text-slate-400 hover:text-slate-200'
+                ? 'border-[#3478ff] bg-[#3478ff]/20 text-[#32d5ff]'
+                : 'border-[#263854] bg-[#101a2b] text-[#a4b5ce] hover:border-[#3478ff] hover:text-white'
             }`}
           >
-            ★ Bookmarks ({bookmarks.length})
+            <span>★ Bookmarks ({bookmarks.length})</span>
           </button>
 
           <button
             onClick={handleSnapshot}
-            className="rounded border border-edge bg-panel-2 px-2.5 py-1 text-slate-300 transition hover:border-slate-500 hover:text-slate-100"
-            title="Capture timestamped evidence note"
+            className="flex items-center gap-1.5 rounded-md border border-[#263854] bg-[#101a2b] px-2.5 py-1 text-[11px] font-medium text-[#a4b5ce] transition hover:border-[#3478ff] hover:text-white"
+            title="Capture timestamped clinical evidence snapshot"
           >
-            {copiedSnapshot ? '✓ Evidence Logged' : 'Evidence Snapshot'}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-3.5 w-3.5">
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+            <span>{copiedSnapshot ? '✓ Evidence Logged' : 'Evidence Snapshot'}</span>
           </button>
 
           <button
             onClick={() => setActiveWorkspace('review')}
-            className="rounded border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 text-emerald-300 transition hover:bg-emerald-500/20"
+            className="flex items-center gap-1.5 rounded-md border border-[#10b981]/60 bg-[#10b981]/15 px-3 py-1 text-[11px] font-semibold text-[#10b981] transition hover:bg-[#10b981]/25 shadow-sm shadow-[#10b981]/20"
           >
-            QC Review →
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} className="h-3.5 w-3.5">
+              <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <span>QC Review</span>
           </button>
         </div>
       </div>
+
 
       {/* Measurement Mode Floating HUD */}
       {tool === 'measure' && (
@@ -173,19 +221,19 @@ export default function ViewerWorkspace() {
 
         {/* Spatial Bookmarks Drawer */}
         {showBookmarks && (
-          <div className="absolute right-0 top-0 bottom-0 z-20 flex w-72 flex-col border-l border-edge bg-panel/95 shadow-2xl backdrop-blur-md">
-            <div className="flex items-center justify-between border-b border-edge p-3">
-              <span className="text-[12px] font-semibold text-slate-100">Spatial Bookmarks</span>
+          <div className="absolute right-0 top-0 bottom-0 z-20 flex w-72 flex-col border-l border-[#263854] bg-[#0a1020]/95 shadow-2xl backdrop-blur-md">
+            <div className="flex items-center justify-between border-b border-[#263854] p-3">
+              <span className="text-[12px] font-semibold text-white">Spatial Bookmarks</span>
               <button
                 onClick={() => setShowBookmarks(false)}
-                className="text-slate-500 hover:text-slate-200"
+                className="text-[#7588a5] hover:text-white"
               >
                 ✕
               </button>
             </div>
 
-            <div className="border-b border-edge/80 p-3 space-y-2">
-              <div className="text-[10.5px] text-slate-400">Save current landmark:</div>
+            <div className="border-b border-[#263854] p-3 space-y-2">
+              <div className="text-[11px] text-[#a4b5ce]">Save current landmark:</div>
               <div className="flex gap-1.5">
                 <input
                   type="text"
@@ -193,49 +241,49 @@ export default function ViewerWorkspace() {
                   value={bookmarkLabel}
                   onChange={(e) => setBookmarkLabel(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSaveBookmark()}
-                  className="flex-1 rounded border border-edge bg-panel-2 px-2 py-1 text-[11px] text-slate-200 focus:border-sky-500 focus:outline-none"
+                  className="flex-1 rounded-md border border-[#263854] bg-[#101a2b] px-2.5 py-1 text-[11px] text-white focus:border-[#32d5ff] focus:outline-none"
                 />
                 <button
                   onClick={handleSaveBookmark}
-                  className="rounded border border-sky-500/50 bg-sky-500/10 px-2 py-1 text-[10px] font-medium text-sky-300 hover:bg-sky-500/20"
+                  className="rounded-md bg-[#3478ff] px-2.5 py-1 text-[10.5px] font-semibold text-white hover:bg-[#2563eb]"
                 >
                   Save
                 </button>
               </div>
-              <div className="font-mono text-[9.5px] text-slate-500">
+              <div className="font-mono text-[10px] text-[#7588a5]">
                 Coords: [{voxel[0]}, {voxel[1]}, {voxel[2]}] · {activeSequence}
               </div>
             </div>
 
             <div className="flex-1 space-y-2 overflow-y-auto p-3">
               {bookmarks.length === 0 ? (
-                <div className="py-6 text-center text-[10.5px] text-slate-500">
+                <div className="py-6 text-center text-[11px] text-[#7588a5]">
                   No bookmarks saved yet. Place crosshair and click Save.
                 </div>
               ) : (
                 bookmarks.map((b) => (
                   <div
                     key={b.id}
-                    className="rounded border border-edge bg-panel-2/60 p-2 text-[11px] space-y-1 hover:border-slate-500 transition-colors"
+                    className="rounded-lg border border-[#263854] bg-[#101a2b] p-2 text-[11px] space-y-1 hover:border-[#3478ff] transition-colors"
                   >
                     <div className="flex items-center justify-between">
-                      <span className="font-semibold text-slate-200">{b.label}</span>
+                      <span className="font-semibold text-white">{b.label}</span>
                       <button
                         onClick={() => removeBookmark(b.id)}
-                        className="text-[10px] text-slate-500 hover:text-rose-400"
+                        className="text-[10px] text-[#7588a5] hover:text-[#f43f5e]"
                         title="Delete bookmark"
                       >
                         ✕
                       </button>
                     </div>
-                    <div className="font-mono text-[9.5px] text-slate-400">
+                    <div className="font-mono text-[9.5px] text-[#a4b5ce]">
                       [{b.voxel[0]}, {b.voxel[1]}, {b.voxel[2]}] · {b.sequence}
                     </div>
                     <div className="flex items-center justify-between pt-1">
-                      <span className="text-[9px] text-slate-500">{b.createdAt}</span>
+                      <span className="text-[9px] text-[#7588a5]">{b.createdAt}</span>
                       <button
                         onClick={() => setVoxel(b.voxel)}
-                        className="rounded bg-sky-500/10 px-1.5 py-0.5 font-mono text-[9.5px] text-sky-300 hover:bg-sky-500/20"
+                        className="rounded bg-[#3478ff]/20 px-2 py-0.5 font-mono text-[9.5px] font-semibold text-[#32d5ff] hover:bg-[#3478ff]/30"
                       >
                         Fly to →
                       </button>
@@ -246,6 +294,7 @@ export default function ViewerWorkspace() {
             </div>
           </div>
         )}
+
       </div>
 
       {/* Bottom Metrics Bar */}

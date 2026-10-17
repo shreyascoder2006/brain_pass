@@ -2,6 +2,7 @@ import BottomActivityStrip from './components/BottomActivityStrip'
 import DatasetsPanel from './components/DatasetsPanel'
 import DisclaimerBanner from './components/DisclaimerBanner'
 import HelpPanel from './components/HelpPanel'
+import PersonasModal from './components/PersonasModal'
 import NavigationSidebar from './components/NavigationSidebar'
 import TopBar from './components/TopBar'
 import UploadPanel from './components/UploadPanel'
@@ -45,6 +46,8 @@ function Shortcuts() {
 
 export default function App() {
   const activeWorkspace = useWorkspaceStore((s) => s.activeWorkspace)
+  const personasOpen = useStore((s) => s.personasOpen)
+  const setPersonasOpen = useStore((s) => s.setPersonasOpen)
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-ink select-none font-sans">
@@ -53,6 +56,7 @@ export default function App() {
       <DisclaimerBanner />
       <UploadPanel />
       <DatasetsPanel />
+      <PersonasModal open={personasOpen} onClose={() => setPersonasOpen(false)} />
       <HelpPanel />
 
       {/* Main Workspace Layout */}

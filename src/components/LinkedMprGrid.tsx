@@ -74,24 +74,26 @@ export default function LinkedMprGrid() {
 
   return (
     <div className="flex h-full min-h-0 gap-2">
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-edge bg-panel">
-        <div className="flex shrink-0 items-center justify-between border-b border-edge px-3 py-2">
-          <h2 className="text-[12.5px] font-semibold tracking-tight text-slate-200">Linked MPR Viewers</h2>
-          <div className="flex items-center gap-2">
-            <div className="flex overflow-hidden rounded border border-edge text-[10px]">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-[#263854] bg-[#0a1020]">
+        <div className="flex shrink-0 items-center justify-between border-b border-[#263854] px-3 py-2">
+          <h2 className="text-[13px] font-bold tracking-tight text-white">Linked MPR Viewers</h2>
+          <div className="flex items-center gap-3">
+            <div className="flex overflow-hidden rounded-md border border-[#263854] bg-[#101a2b] p-0.5 text-[10.5px]">
               {(['predicted', 'expert'] as const).map((m) => (
                 <button
                   key={m}
                   onClick={() => setMaskSource(m)}
-                  className={`px-2 py-[3px] capitalize transition ${
-                    maskSource === m ? 'bg-sky-500/20 text-sky-300' : 'text-slate-500 hover:text-slate-300'
+                  className={`rounded px-2.5 py-0.5 font-semibold capitalize transition ${
+                    maskSource === m
+                      ? 'bg-[#3478ff] text-white shadow-sm'
+                      : 'text-[#7588a5] hover:text-white'
                   }`}
                 >
                   {m === 'predicted' ? 'Model' : 'Expert'}
                 </button>
               ))}
             </div>
-            <span className="font-mono text-[9.5px] text-slate-600">1 crosshair · 4 views</span>
+            <span className="font-mono text-[10px] text-[#7588a5]">1 crosshair · 4 views</span>
           </div>
         </div>
 
@@ -100,16 +102,16 @@ export default function LinkedMprGrid() {
           <MprPanel plane="coronal" />
           <MprPanel plane="sagittal" />
 
-          <div className="flex min-h-0 flex-col overflow-hidden rounded-md border border-edge bg-[#0a0e14]">
-            <div className="flex shrink-0 items-center justify-between border-b border-edge-soft bg-panel px-2.5 py-1.5">
-              <span className="text-[11.5px] font-medium text-slate-200">Sequence Selector</span>
-              <span className="font-mono text-[9.5px] text-slate-500">compare</span>
+          <div className="flex min-h-0 flex-col overflow-hidden rounded-md border border-[#263854] bg-[#05070d]">
+            <div className="flex shrink-0 items-center justify-between border-b border-[#263854] bg-[#0a1020] px-2.5 py-1.5">
+              <span className="text-[11.5px] font-semibold text-white">Sequence Selector</span>
+              <span className="font-mono text-[9.5px] text-[#32d5ff]">compare</span>
             </div>
             <div className="shrink-0 px-2 pt-2">
               <select
                 value={compareSeq}
                 onChange={(e) => setCompareSeq(e.target.value as SequenceName)}
-                className="w-full rounded border border-edge bg-panel-2 px-2 py-1 text-[11px] text-slate-200 outline-none focus:border-sky-500/60"
+                className="w-full rounded-md border border-[#263854] bg-[#101a2b] px-2 py-1 text-[11px] font-medium text-white outline-none focus:border-[#3478ff]"
               >
                 {SEQUENCES.map((s) => (
                   <option key={s} value={s}>{s}</option>
@@ -122,65 +124,47 @@ export default function LinkedMprGrid() {
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-2 border-t border-edge px-3 py-1.5">
-          <span className="text-[10px] uppercase tracking-[0.14em] text-slate-500">Base sequence</span>
-          <div className="flex overflow-hidden rounded border border-edge">
-            {SEQUENCES.map((s) => (
-              <button
-                key={s}
-                onClick={() => setSequence(s)}
-                className={`px-2.5 py-[3px] text-[10.5px] font-medium transition ${
-                  sequence === s
-                    ? 'bg-sky-500/20 text-sky-300'
-                    : 'text-slate-500 hover:bg-white/5 hover:text-slate-300'
-                }`}
-              >
-                {s}
-              </button>
-            ))}
+        {/* Bottom Base Sequence Bar matching UI Sample 2 */}
+        <div className="flex shrink-0 items-center justify-between border-t border-[#263854] px-3 py-1.5 bg-[#0a1020]">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] uppercase font-bold tracking-[0.14em] text-[#7588a5]">Base sequence</span>
+            <div className="flex overflow-hidden rounded-md border border-[#263854] bg-[#101a2b] p-0.5">
+              {SEQUENCES.map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setSequence(s)}
+                  className={`rounded px-2.5 py-0.5 text-[10.5px] font-semibold transition ${
+                    sequence === s
+                      ? 'bg-[#3478ff] text-white shadow-sm'
+                      : 'text-[#7588a5] hover:text-white'
+                  }`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
           </div>
-          {tool !== 'crosshair' && (
-            <span className="rounded border border-amber-500/40 bg-amber-500/10 px-1.5 py-[2px] font-mono text-[9.5px] text-amber-300">
-              {tool === 'measure'
-                ? measure.length === 0 ? 'measure: click the first point'
-                  : measure.length === 1 ? 'measure: click the second point'
-                  : 'measure: click again to start over'
-                : `window ${windowCenter} / ${windowWidth} — drag a view`}
-            </span>
-          )}
 
-          {overlayMode === 'uncertainty' && uncertainty ? (
-            <div className="ml-auto flex items-center gap-2 font-mono text-[9.5px] text-slate-600">
-              <span>model confidence</span>
-              <span
-                className="h-2 w-16 rounded-full"
-                style={{ background: 'linear-gradient(90deg, #2563eb, #22d3ee, #facc15, #ef4444)' }}
-              />
-              <span>low → high disagreement</span>
-            </div>
-          ) : overlayMode === 'agreement' ? (
-            <div className="ml-auto flex items-center gap-3 font-mono text-[9.5px] text-slate-600">
-              <span className="flex items-center gap-1">
-                <i className="inline-block h-2 w-2 rounded-[2px]" style={{ background: '#34a880' }} />both agree
-              </span>
-              <span className="flex items-center gap-1">
-                <i className="inline-block h-2 w-2 rounded-[2px]" style={{ background: '#eaa03c' }} />model only
-              </span>
-              <span className="flex items-center gap-1">
-                <i className="inline-block h-2 w-2 rounded-[2px]" style={{ background: '#e9485e' }} />expert only
-              </span>
-            </div>
-          ) : (
-            <div className="ml-auto flex items-center gap-3 font-mono text-[9.5px] text-slate-600">
-              <span className="flex items-center gap-1"><i className="inline-block h-2 w-2 rounded-[2px] bg-wt" />ED</span>
-              <span className="flex items-center gap-1"><i className="inline-block h-2 w-2 rounded-[2px] bg-tc" />NCR</span>
-              <span className="flex items-center gap-1"><i className="inline-block h-2 w-2 rounded-[2px] bg-et" />ET</span>
-            </div>
-          )}
+          {/* Legend */}
+          <div className="flex items-center gap-3 font-mono text-[10px] text-[#a4b5ce]">
+            <span className="flex items-center gap-1.5">
+              <i className="inline-block h-2 w-2 rounded-full bg-[#10b981]" />
+              <span>Both agree</span>
+            </span>
+            <span className="flex items-center gap-1.5">
+              <i className="inline-block h-2 w-2 rounded-full bg-[#f59e0b]" />
+              <span>Model only</span>
+            </span>
+            <span className="flex items-center gap-1.5">
+              <i className="inline-block h-2 w-2 rounded-full bg-[#f43f5e]" />
+              <span>Expert only</span>
+            </span>
+          </div>
         </div>
       </div>
 
-      <div className="flex w-10 shrink-0 flex-col items-center gap-1 rounded-lg border border-edge bg-panel py-2">
+
+      <div className="flex w-10 shrink-0 flex-col items-center gap-1.5 rounded-lg border border-[#263854] bg-[#0a1020] py-2.5">
         <ToolButton
           title="Crosshair — click any view to move it (C)"
           path={ICONS.crosshair}

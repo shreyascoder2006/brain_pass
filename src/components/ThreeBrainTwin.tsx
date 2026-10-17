@@ -9,6 +9,7 @@ import type { Mesh as IsoMesh } from '../lib/surfaceNets'
 import { voxelToWorld } from '../lib/volume'
 import { useStore } from '../state/store'
 import { useStudy } from '../state/study'
+import { useBrainModel } from '../lib/useBrainModel'
 
 function useGeometry(mesh: IsoMesh | null) {
   return useMemo(() => {
@@ -21,6 +22,8 @@ function useGeometry(mesh: IsoMesh | null) {
     return g
   }, [mesh])
 }
+
+type VisMode = 'surface' | 'overlay' | 'combined'
 
 function RegionSurface({
   mesh, lattice, hex, opacity, visible, wireOnly, order, onSelect,
@@ -53,16 +56,16 @@ function RegionSurface({
             color={hex}
             transparent
             opacity={opacity}
-            roughness={0.38}
-            metalness={0.05}
-            clearcoat={0.6}
-            clearcoatRoughness={0.35}
+            roughness={0.32}
+            metalness={0.06}
+            clearcoat={0.7}
+            clearcoatRoughness={0.28}
             side={THREE.DoubleSide}
             depthWrite={false}
             fog={false}
             toneMapped={false}
             emissive={hex}
-            emissiveIntensity={hovered ? 0.5 : 0.18}
+            emissiveIntensity={hovered ? 0.75 : 0.32}
           />
         </mesh>
       )}
@@ -73,7 +76,7 @@ function RegionSurface({
           transparent
           fog={false}
           toneMapped={false}
-          opacity={wireOnly ? (hovered ? 0.95 : 0.72) : Math.min(0.34, opacity * 0.4 + 0.08)}
+          opacity={wireOnly ? (hovered ? 0.95 : 0.75) : Math.min(0.42, opacity * 0.45 + 0.12)}
           depthWrite={false}
         />
       </mesh>
@@ -81,119 +84,205 @@ function RegionSurface({
   )
 }
 
-const FRESNEL_VERT = /* glsl */ `
-  varying vec3 vNormalW;
-  varying vec3 vPosW;
-  void main() {
-    vec4 wp = modelMatrix * vec4(position, 1.0);
-    vPosW = wp.xyz;
-    vNormalW = normalize(mat3(modelMatrix) * normal);
-    gl_Position = projectionMatrix * viewMatrix * wp;
-  }
-`
+/**
+ * Realistic Neural Arborization Network & Synaptic Nerve Endings:
+ * Simulates the living cortical pial vascular plexus and dendritic arborizations
+ * with glowing micro-synaptic boutons at each nerve terminal.
+ */
+function NeuralArborization({ visible }: { visible: boolean }) {
+  const pointsRef = useRef<THREE.Points>(null)
+  const linesRef = useRef<THREE.LineSegments>(null)
 
-const FRESNEL_FRAG = /* glsl */ `
-  uniform vec3 uColor;
-  uniform float uPower;
-  uniform float uIntensity;
-  varying vec3 vNormalW;
-  varying vec3 vPosW;
-  void main() {
-    vec3 viewDir = normalize(cameraPosition - vPosW);
-    float f = pow(1.0 - abs(dot(normalize(vNormalW), viewDir)), uPower);
-    gl_FragColor = vec4(uColor * f * uIntensity, f * uIntensity);
-  }
-`
+  // Generate realistic branching cortical nerve tracts & terminal synaptic points
+  const { lineGeometry, pointsGeometry } = useMemo(() => {
+    const linePositions: number[] = []
+    const pointPositions: number[] = []
 
-/** Rim light that only fires where the surface turns away — the glass-brain look. */
-function FresnelShell({ geometry, intensity }: { geometry: THREE.BufferGeometry; intensity: number }) {
-  const uniforms = useMemo(
-    () => ({
-      uColor: { value: new THREE.Color(0x9fe0ef) },
-      uPower: { value: 3.0 },
-      uIntensity: { value: intensity },
-    }),
-    [],
-  )
-  uniforms.uIntensity.value = intensity
+    // Seeded pseudo-random generator for consistent neural placement
+    let seed = 42
+    const rnd = () => {
+      seed = (seed * 16807) % 2147483647
+      return (seed - 1) / 2147483646
+    }
+
+    // Major cortical arborization clusters over the frontal, parietal, and temporal lobes
+    const clusters = [
+      { center: [34, 25, 22], count: 28, radius: 46 },   // Right Frontal/Parietal (near tumor)
+      { center: [-34, 25, 22], count: 26, radius: 46 },  // Left Frontal/Parietal
+      { center: [44, -18, 16], count: 22, radius: 42 },  // Right Temporal/Sylvian
+      { center: [-44, -18, 16], count: 22, radius: 42 }, // Left Temporal/Sylvian
+      { center: [20, -55, 34], count: 18, radius: 38 },  // Right Parieto-Occipital
+      { center: [-20, -55, 34], count: 18, radius: 38 }, // Left Parieto-Occipital
+      { center: [12, 45, 12], count: 16, radius: 32 },   // Frontal pole R
+      { center: [-12, 45, 12], count: 16, radius: 32 },  // Frontal pole L
+    ]
+
+    clusters.forEach((cluster) => {
+      for (let i = 0; i < cluster.count; i++) {
+        // Start from a sulcal root
+        let cx = cluster.center[0] + (rnd() - 0.5) * cluster.radius
+        let cy = cluster.center[1] + (rnd() - 0.5) * cluster.radius
+        let cz = cluster.center[2] + (rnd() - 0.5) * (cluster.radius * 0.75)
+
+        // Project radially outwards to cortical surface
+        const dist = Math.hypot(cx / 72, cy / 90, cz / 68)
+        if (dist > 0.1) {
+          cx = (cx / dist) * 1.02
+          cy = (cy / dist) * 1.02
+          cz = (cz / dist) * 1.02
+        }
+
+        let currX = cx
+        let currY = cy
+        let currZ = cz
+
+        // Branch outward in 3-5 segments
+        const numSegments = 3 + Math.floor(rnd() * 3)
+        for (let s = 0; s < numSegments; s++) {
+          const nextX = currX + (rnd() - 0.5) * 8 + (currX > 0 ? 1.5 : -1.5)
+          const nextY = currY + (rnd() - 0.5) * 8
+          const nextZ = currZ + (rnd() - 0.5) * 6 + 0.8
+
+          // Ensure it stays hugging the cortex
+          const nextDist = Math.hypot(nextX / 72, nextY / 90, nextZ / 68)
+          const fx = (nextX / (nextDist || 1)) * 1.015
+          const fy = (nextY / (nextDist || 1)) * 1.015
+          const fz = (nextZ / (nextDist || 1)) * 1.015
+
+          // Line segment
+          linePositions.push(currX, currY, currZ, fx, fy, fz)
+
+          // Secondary dendritic split
+          if (rnd() > 0.45) {
+            const splitX = fx + (rnd() - 0.5) * 6
+            const splitY = fy + (rnd() - 0.5) * 6
+            const splitZ = fz + (rnd() - 0.5) * 5
+            const sDist = Math.hypot(splitX / 72, splitY / 90, splitZ / 68)
+            const sx = (splitX / (sDist || 1)) * 1.018
+            const sy = (splitY / (sDist || 1)) * 1.018
+            const sz = (splitZ / (sDist || 1)) * 1.018
+            linePositions.push(fx, fy, fz, sx, sy, sz)
+            // Terminal synaptic bouton at split ending
+            pointPositions.push(sx, sy, sz)
+          }
+
+          currX = fx
+          currY = fy
+          currZ = fz
+        }
+
+        // Terminal nerve ending bouton at branch end
+        pointPositions.push(currX, currY, currZ)
+      }
+    })
+
+    const lGeom = new THREE.BufferGeometry()
+    lGeom.setAttribute('position', new THREE.Float32BufferAttribute(linePositions, 3))
+
+    const pGeom = new THREE.BufferGeometry()
+    pGeom.setAttribute('position', new THREE.Float32BufferAttribute(pointPositions, 3))
+
+    return { lineGeometry: lGeom, pointsGeometry: pGeom }
+  }, [])
+
+  // Animate synaptic nerve pulse transmission
+  useFrame(({ clock }) => {
+    const t = clock.getElapsedTime()
+    if (pointsRef.current) {
+      const mat = pointsRef.current.material as THREE.PointsMaterial
+      mat.size = 2.4 + Math.sin(t * 3.5) * 0.6
+    }
+  })
+
+  if (!visible) return null
 
   return (
-    <mesh geometry={geometry} renderOrder={2}>
-      <shaderMaterial
-        vertexShader={FRESNEL_VERT}
-        fragmentShader={FRESNEL_FRAG}
-        uniforms={uniforms}
-        transparent
-        depthWrite={false}
-        blending={THREE.AdditiveBlending}
-        side={THREE.DoubleSide}
-      />
-    </mesh>
+    <group renderOrder={4}>
+      {/* Neural axonal fiber branches */}
+      <lineSegments ref={linesRef} geometry={lineGeometry}>
+        <lineBasicMaterial
+          color="#32d5ff"
+          transparent
+          opacity={0.65}
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+        />
+      </lineSegments>
+
+      {/* Terminal synaptic boutons / nerve endings */}
+      <points ref={pointsRef} geometry={pointsGeometry}>
+        <pointsMaterial
+          color="#32d5ff"
+          size={2.8}
+          transparent
+          opacity={0.88}
+          sizeAttenuation
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+        />
+      </points>
+    </group>
   )
 }
 
-function BrainShell({ mesh, lattice, opacity, visible }: {
-  mesh: IsoMesh | null; lattice: IsoMesh | null; opacity: number; visible: boolean
+/**
+ * Realistic Ivory Cortical Brain Twin:
+ * Uses the high-resolution FreeSurfer Colin27 mesh with 589,848 vertices of authentic
+ * gyri and sulci folds, shaded with warm-white pale ivory physical material.
+ */
+function IvoryCorticalBrain({
+  fallbackMesh,
+  opacity,
+  visible,
+  visMode,
+}: {
+  fallbackMesh: IsoMesh | null
+  opacity: number
+  visible: boolean
+  visMode: VisMode
 }) {
-  const geometry = useGeometry(mesh)
-  const latticeGeometry = useGeometry(lattice)
-  if (!geometry) return null
-  const wireGeometry = latticeGeometry ?? geometry
+  const { geometry: freeSurferGeometry, isLoading } = useBrainModel()
+  const fallbackGeometry = useGeometry(fallbackMesh)
+
+  const activeGeometry = freeSurferGeometry ?? fallbackGeometry
+  if (!activeGeometry) return null
+
+  const isOpaque = visMode === 'surface'
+  const effectiveOpacity = isOpaque ? 1.0 : visMode === 'overlay' ? opacity * 0.42 : opacity * 0.72
+
   return (
-    // Drawn first with depthWrite off, so the tumour always reads through the shell.
-    // Back faces first, then front: two passes give the specimen-in-glass depth
-    // a single translucent pass cannot.
     <group visible={visible} raycast={() => null}>
-      <mesh geometry={geometry} renderOrder={0}>
+      <mesh geometry={activeGeometry} renderOrder={isOpaque ? 0 : 1}>
         <meshPhysicalMaterial
-          color={0x5e8ea3}
-          transparent
-          opacity={opacity * 0.22}
-          roughness={0.85}
-          metalness={0}
-          side={THREE.BackSide}
-          depthWrite={false}
+          color="#ece5d8"
+          roughness={0.52}
+          metalness={0.02}
+          clearcoat={0.24}
+          clearcoatRoughness={0.35}
+          reflectivity={0.28}
+          sheen={0.35}
+          sheenColor="#fff2e6"
+          side={THREE.DoubleSide}
+          transparent={!isOpaque}
+          opacity={effectiveOpacity}
+          depthWrite={isOpaque}
         />
       </mesh>
-      <mesh geometry={geometry} renderOrder={1}>
-        <meshPhysicalMaterial
-          color={0x9fd0dd}
-          transparent
-          opacity={opacity}
-          roughness={0.55}
-          metalness={0}
-          clearcoat={0.6}
-          clearcoatRoughness={0.4}
-          side={THREE.FrontSide}
-          depthWrite={false}
-        />
-      </mesh>
-      {/* Faint filament texture over the shell, the way the reference reads. */}
-      <mesh geometry={wireGeometry} renderOrder={2}>
-        <meshBasicMaterial
-          color={0x8fd4e2}
-          wireframe
-          transparent
-          opacity={opacity * 0.16}
-          depthWrite={false}
-        />
-      </mesh>
-      <FresnelShell geometry={geometry} intensity={opacity * 0.9} />
     </group>
   )
 }
 
 function Crosshair3D({ position, extent }: { position: [number, number, number]; extent: number }) {
-  const axes: Array<{ dir: [number, number, number]; colour: number }> = [
-    { dir: [1, 0, 0], colour: 0xff5f6d },
-    { dir: [0, 1, 0], colour: 0x6ee7a8 },
-    { dir: [0, 0, 1], colour: 0x6cb6ff },
+  const axes: Array<{ dir: [number, number, number]; colour: string }> = [
+    { dir: [1, 0, 0], colour: '#f43f5e' }, // R (red)
+    { dir: [0, 1, 0], colour: '#10b981' }, // A (green)
+    { dir: [0, 0, 1], colour: '#32d5ff' }, // S (cyan)
   ]
   return (
     <group position={position}>
       <mesh>
-        <sphereGeometry args={[2.2, 16, 16]} />
-        <meshBasicMaterial color={0x7dd3fc} />
+        <sphereGeometry args={[2.0, 16, 16]} />
+        <meshBasicMaterial color="#32d5ff" />
       </mesh>
       {axes.map(({ dir, colour }, i) => {
         const pts = new Float32Array([
@@ -205,7 +294,7 @@ function Crosshair3D({ position, extent }: { position: [number, number, number];
             <bufferGeometry>
               <bufferAttribute attach="attributes-position" args={[pts, 3]} />
             </bufferGeometry>
-            <lineBasicMaterial color={colour} transparent opacity={0.45} depthTest={false} />
+            <lineBasicMaterial color={colour} transparent opacity={0.65} depthTest={false} />
           </line>
         )
       })}
@@ -213,33 +302,85 @@ function Crosshair3D({ position, extent }: { position: [number, number, number];
   )
 }
 
-interface FlyTarget { centre: THREE.Vector3; distance: number }
+function TumourBeacon({ position, label }: { position: [number, number, number]; label?: string }) {
+  const pinLength = 26
+  return (
+    <group position={position}>
+      <mesh>
+        <sphereGeometry args={[2.8, 16, 16]} />
+        <meshBasicMaterial color="#f43f5e" wireframe />
+      </mesh>
+      <line>
+        <bufferGeometry>
+          <bufferAttribute
+            attach="attributes-position"
+            args={[new Float32Array([0, 0, 0, 0, 0, pinLength]), 3]}
+          />
+        </bufferGeometry>
+        <lineBasicMaterial color="#f43f5e" transparent opacity={0.85} />
+      </line>
+      <mesh position={[0, 0, pinLength]}>
+        <sphereGeometry args={[3.2, 14, 14]} />
+        <meshStandardMaterial color="#f43f5e" emissive="#f43f5e" emissiveIntensity={1.4} />
+      </mesh>
+    </group>
+  )
+}
 
-function CameraRig({ target, spin, onInteract }: {
-  target: FlyTarget | null
+interface CameraTarget {
+  pos: THREE.Vector3
+  look: THREE.Vector3
+}
+
+function CameraRig({
+  flyTarget,
+  presetOrientation,
+  spin,
+  onInteract,
+}: {
+  flyTarget: { centre: THREE.Vector3; distance: number } | null
+  presetOrientation: 'A' | 'P' | 'L' | 'R' | 'S' | 'I' | null
   spin: boolean
   onInteract: () => void
 }) {
   const controls = useRef<any>(null)
   const { camera } = useThree()
-  const goal = useRef<{ pos: THREE.Vector3; look: THREE.Vector3 } | null>(null)
+  const goal = useRef<CameraTarget | null>(null)
 
   useEffect(() => {
-    if (!target || !controls.current) return
+    if (!presetOrientation || !controls.current) return
+    const dist = 350
+    const target = controls.current.target.clone()
+    let newPos = new THREE.Vector3(0, 0, dist)
+    if (presetOrientation === 'A') newPos = new THREE.Vector3(0, dist, 20)
+    else if (presetOrientation === 'P') newPos = new THREE.Vector3(0, -dist, 20)
+    else if (presetOrientation === 'R') newPos = new THREE.Vector3(dist, 0, 20)
+    else if (presetOrientation === 'L') newPos = new THREE.Vector3(-dist, 0, 20)
+    else if (presetOrientation === 'S') newPos = new THREE.Vector3(0, 0, dist)
+    else if (presetOrientation === 'I') newPos = new THREE.Vector3(0, 0, -dist)
+
+    goal.current = {
+      pos: target.clone().add(newPos),
+      look: target,
+    }
+  }, [presetOrientation])
+
+  useEffect(() => {
+    if (!flyTarget || !controls.current) return
     const dir = camera.position.clone().sub(controls.current.target).normalize()
     goal.current = {
-      pos: target.centre.clone().add(dir.multiplyScalar(target.distance)),
-      look: target.centre.clone(),
+      pos: flyTarget.centre.clone().add(dir.multiplyScalar(flyTarget.distance)),
+      look: flyTarget.centre.clone(),
     }
-  }, [target, camera])
+  }, [flyTarget, camera])
 
   useFrame(() => {
     const c = controls.current
     if (!c) return
     if (goal.current) {
-      camera.position.lerp(goal.current.pos, 0.08)
-      c.target.lerp(goal.current.look, 0.08)
-      if (camera.position.distanceTo(goal.current.pos) < 0.6) goal.current = null
+      camera.position.lerp(goal.current.pos, 0.1)
+      c.target.lerp(goal.current.look, 0.1)
+      if (camera.position.distanceTo(goal.current.pos) < 0.8) goal.current = null
     }
     c.update()
   })
@@ -250,18 +391,41 @@ function CameraRig({ target, spin, onInteract }: {
       enableDamping
       dampingFactor={0.08}
       rotateSpeed={0.7}
-      minDistance={45}
-      maxDistance={700}
+      minDistance={40}
+      maxDistance={800}
       autoRotate={spin}
-      autoRotateSpeed={0.45}
+      autoRotateSpeed={0.35}
       onStart={onInteract}
       makeDefault
     />
   )
 }
 
-function Scene() {
-  const { study, brainMesh, brainLattice, meshes, lattices } = useStudy()
+function StudioLighting() {
+  return (
+    <>
+      <ambientLight intensity={0.65} color="#eef3fa" />
+      <hemisphereLight args={['#ffffff', '#060a12', 0.85]} />
+      {/* Key warm studio light */}
+      <directionalLight position={[190, 240, 310]} intensity={1.65} color="#fffcf5" />
+      {/* Fill cool light */}
+      <directionalLight position={[-250, -180, 160]} intensity={0.85} color="#9ec5e8" />
+      {/* Rim light from behind */}
+      <directionalLight position={[0, -240, -220]} intensity={0.7} color="#38bdf8" />
+    </>
+  )
+}
+
+function Scene({
+  visMode,
+  showNerves,
+  presetOrientation,
+}: {
+  visMode: VisMode
+  showNerves: boolean
+  presetOrientation: 'A' | 'P' | 'L' | 'R' | 'S' | 'I' | null
+}) {
+  const { study, brainMesh, meshes, lattices } = useStudy()
   const {
     regions, brainVisible, brainOpacity, isolated, setIsolated,
     wireframe, voxel, maskSource, autoOrbit, setAutoOrbit,
@@ -270,11 +434,9 @@ function Scene() {
   const activeMeshes = meshes[maskSource]
   const activeLattices = lattices[maskSource]
 
-  const flyTarget = useMemo<FlyTarget | null>(() => {
+  const flyTarget = useMemo(() => {
     const key = isolated
-    if (!key) {
-      return { centre: new THREE.Vector3(0, 0, 0), distance: 340 }
-    }
+    if (!key) return { centre: new THREE.Vector3(0, 0, 0), distance: 340 }
     const m = activeMeshes[key]
     if (!m) return null
     const c = meshCentroid(m)
@@ -292,29 +454,30 @@ function Scene() {
     [study.affine, voxel],
   )
 
-  // Isolating a region drops everything outside it to a wireframe lattice.
   const order: RegionKey[] = ['WT', 'TC', 'ET']
   const isolatedRank = isolated ? order.indexOf(isolated) : -1
 
   return (
     <>
-      <fog attach="fog" args={['#080c15', 300, 660]} />
-      <ambientLight intensity={0.9} />
-      <hemisphereLight args={[0xcfeaf5, 0x0e141d, 0.8]} />
-      <directionalLight position={[180, 220, 280]} intensity={1.3} color={0xeaf7ff} />
-      <directionalLight position={[-260, -140, 120]} intensity={0.7} color={0xa8d8ea} />
-      <directionalLight position={[0, -220, -200]} intensity={0.45} color={0xffe8d8} />
+      <fog attach="fog" args={['#05070d', 320, 750]} />
+      <StudioLighting />
 
-      <BrainShell
-        mesh={brainMesh}
-        lattice={brainLattice}
-        opacity={isolated ? brainOpacity * 0.45 : brainOpacity}
+      {/* Realistic Ivory Cortical Brain Twin */}
+      <IvoryCorticalBrain
+        fallbackMesh={brainMesh}
+        opacity={isolated ? brainOpacity * 0.35 : brainOpacity}
         visible={brainVisible}
+        visMode={visMode}
       />
 
+      {/* Realistic Neural Arborization Network & Synaptic Nerve Endings */}
+      <NeuralArborization visible={showNerves && brainVisible} />
+
+      {/* Segmented Tumor Compartments */}
       {REGIONS.map((def, rank) => {
         const ui = regions[def.key]
         const outerThanIsolated = isolatedRank >= 0 && rank < isolatedRank
+        const shouldShow = visMode !== 'surface' && ui.visible
         return (
           <RegionSurface
             key={def.key}
@@ -322,7 +485,7 @@ function Scene() {
             lattice={activeLattices[def.key]}
             hex={def.hex}
             opacity={ui.opacity}
-            visible={ui.visible}
+            visible={shouldShow}
             order={2 + rank * 2}
             wireOnly={wireframe || outerThanIsolated}
             onSelect={(e) => {
@@ -336,28 +499,39 @@ function Scene() {
 
       <Crosshair3D position={crosshairWorld as [number, number, number]} extent={isolated ? 60 : 150} />
 
-      <CameraRig target={flyTarget} spin={autoOrbit} onInteract={() => setAutoOrbit(false)} />
+      {visMode !== 'surface' && study.persona?.tumour && (
+        <TumourBeacon
+          position={study.persona.tumour.centre as [number, number, number]}
+          label={study.persona.lesionType}
+        />
+      )}
 
-      <GizmoHelper alignment="bottom-right" margin={[68, 68]}>
+      <CameraRig
+        flyTarget={flyTarget}
+        presetOrientation={presetOrientation}
+        spin={autoOrbit}
+        onInteract={() => setAutoOrbit(false)}
+      />
+
+      <GizmoHelper alignment="bottom-right" margin={[74, 74]}>
         <GizmoViewcube
           faces={['R', 'L', 'A', 'P', 'S', 'I']}
-          color="#1b2430"
-          strokeColor="#3a4860"
-          textColor="#cbd5e1"
-          hoverColor="#2563eb"
+          color="#0a1020"
+          strokeColor="#263854"
+          textColor="#f1f6ff"
+          hoverColor="#3478ff"
         />
       </GizmoHelper>
 
-      {/* The threshold is set above the shell's luminance, so only the regions glow. */}
       <EffectComposer multisampling={4}>
         <Bloom
-          intensity={0.28}
+          intensity={0.25}
           luminanceThreshold={0.62}
-          luminanceSmoothing={0.4}
+          luminanceSmoothing={0.35}
           mipmapBlur
-          radius={0.5}
+          radius={0.45}
         />
-        <Vignette offset={0.32} darkness={0.5} eskil={false} />
+        <Vignette offset={0.3} darkness={0.45} eskil={false} />
       </EffectComposer>
     </>
   )
@@ -365,169 +539,264 @@ function Scene() {
 
 function AxisTriad() {
   return (
-    <svg width="78" height="78" viewBox="0 0 78 78" className="pointer-events-none">
-      <g transform="translate(20,58)">
-        <line x1="0" y1="0" x2="34" y2="10" stroke="#ff5f6d" strokeWidth="1.6" />
-        <text x="38" y="14" fill="#ff5f6d" fontSize="9" fontFamily="monospace">x·R</text>
-        <line x1="0" y1="0" x2="22" y2="-18" stroke="#6ee7a8" strokeWidth="1.6" />
-        <text x="25" y="-19" fill="#6ee7a8" fontSize="9" fontFamily="monospace">y·A</text>
-        <line x1="0" y1="0" x2="0" y2="-40" stroke="#6cb6ff" strokeWidth="1.6" />
-        <text x="-4" y="-44" fill="#6cb6ff" fontSize="9" fontFamily="monospace">z·S</text>
-        <circle cx="0" cy="0" r="2.2" fill="#e6edf5" />
+    <svg width="86" height="86" viewBox="0 0 86 86" className="pointer-events-none">
+      <g transform="translate(24,62)">
+        {/* R (X) - Red/Coral */}
+        <line x1="0" y1="0" x2="36" y2="10" stroke="#f43f5e" strokeWidth="2" strokeLinecap="round" />
+        <text x="40" y="14" fill="#f43f5e" fontSize="9.5" fontFamily="monospace" fontWeight="bold">x·R</text>
+        {/* A (Y) - Teal/Green */}
+        <line x1="0" y1="0" x2="24" y2="-20" stroke="#10b981" strokeWidth="2" strokeLinecap="round" />
+        <text x="27" y="-21" fill="#10b981" fontSize="9.5" fontFamily="monospace" fontWeight="bold">y·A</text>
+        {/* S (Z) - Cyan */}
+        <line x1="0" y1="0" x2="0" y2="-44" stroke="#32d5ff" strokeWidth="2" strokeLinecap="round" />
+        <text x="-4" y="-48" fill="#32d5ff" fontSize="9.5" fontFamily="monospace" fontWeight="bold">z·S</text>
+        <circle cx="0" cy="0" r="2.5" fill="#f1f6ff" />
       </g>
     </svg>
   )
 }
 
 export default function ThreeBrainTwin() {
-  const { report } = useStudy()
+  const { report, study } = useStudy()
   const {
-    regions, toggleRegion, setOpacity, isolated, setIsolated,
+    regions, toggleRegion, isolated, setIsolated,
     wireframe, setWireframe, brainVisible, toggleBrain, brainOpacity, setBrainOpacity,
-    voxel,
   } = useStore()
-  const { study } = useStudy()
-  const world = voxelToWorld(study.affine, voxel[0], voxel[1], voxel[2])
+
+  const [visMode, setVisMode] = useState<VisMode>('overlay')
+  const [showNerves, setShowNerves] = useState(true)
+  const [presetOrientation, setPresetOrientation] = useState<'A' | 'P' | 'L' | 'R' | 'S' | 'I' | null>(null)
+  const [showGizmo, setShowGizmo] = useState(true)
 
   const primary: RegionKey = isolated ?? 'WT'
   const primaryDef = REGIONS.find((r) => r.key === primary)!
 
+  const handleOrientationClick = (letter: 'A' | 'P' | 'L' | 'R' | 'S' | 'I') => {
+    setPresetOrientation(letter)
+    setTimeout(() => setPresetOrientation(null), 300)
+  }
+
   return (
     <div
-      className="relative h-full w-full overflow-hidden rounded-lg border border-edge"
+      className="relative h-full w-full overflow-hidden rounded-lg border border-[#263854]"
       style={{
-        background:
-          'radial-gradient(120% 100% at 50% 38%, #111a28 0%, #0b1220 46%, #060a12 100%)',
+        background: 'radial-gradient(130% 110% at 50% 40%, #0d1527 0%, #080d19 45%, #05070d 100%)',
       }}
     >
       <Canvas
         dpr={[1, 2]}
         gl={{ antialias: true, alpha: true }}
-        camera={{ position: [40, 175, 330], up: [0, 0, 1], fov: 36, near: 1, far: 4000 }}
+        camera={{ position: [30, 180, 330], up: [0, 0, 1], fov: 36, near: 1, far: 4000 }}
         onPointerMissed={() => setIsolated(null)}
       >
-        <Scene />
+        <Scene visMode={visMode} showNerves={showNerves} presetOrientation={presetOrientation} />
       </Canvas>
 
-      {/* Telemetry HUD */}
-      <div className="pointer-events-none absolute left-3 top-3 rounded-md border border-edge/80 bg-panel/85 px-3 py-2 font-mono text-[10.5px] leading-[1.45] text-slate-300 backdrop-blur-sm">
-        <div className="mb-1 font-sans text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-          Crosshair telemetry
+      {/* Floating Card 1: "Segmentation Regions" matching UI Sample 2 */}
+      <div className="absolute left-3 top-3 w-[212px] rounded-lg border border-[#263854] bg-[#0a1020]/90 p-2.5 backdrop-blur-md shadow-xl shadow-black/40">
+        <div className="mb-2 text-[10.5px] font-bold uppercase tracking-[0.12em] text-[#a4b5ce]">
+          Segmentation Regions
         </div>
-        <div>Voxel&nbsp;&nbsp;<span className="text-slate-100">({voxel[0]}, {voxel[1]}, {voxel[2]})</span></div>
-        <div>World&nbsp;&nbsp;<span className="text-sky-300">
-          ({world[0].toFixed(1)}, {world[1].toFixed(1)}, {world[2].toFixed(1)}) mm
-        </span></div>
-        <div className="mt-1 text-slate-500">
-          Grid {study.dims.join('×')} · {study.spacing.map((s) => s.toFixed(2)).join('×')} mm
-        </div>
-      </div>
+        <div className="space-y-1">
+          {REGIONS.map((def) => {
+            const ui = regions[def.key]
+            return (
+              <div
+                key={def.key}
+                className="flex items-center justify-between rounded px-1.5 py-1 text-[11.5px] hover:bg-white/5 transition"
+              >
+                <div
+                  onClick={() => setIsolated(isolated === def.key ? null : def.key)}
+                  className="flex flex-1 items-center gap-2 cursor-pointer"
+                >
+                  <span
+                    className="h-2.5 w-2.5 shrink-0 rounded-full"
+                    style={{ background: def.colour }}
+                  />
+                  <span className={`truncate ${isolated === def.key ? 'text-[#32d5ff] font-bold' : 'text-[#f1f6ff]'}`}>
+                    {def.label}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-[10px] text-[#a4b5ce]">
+                    {report[def.key].predML.toFixed(1)} mL
+                  </span>
+                  <button
+                    onClick={() => toggleRegion(def.key)}
+                    className="text-[#7588a5] hover:text-white"
+                    title={ui.visible ? 'Hide region' : 'Show region'}
+                  >
+                    {ui.visible ? '👁' : '🚫'}
+                  </button>
+                </div>
+              </div>
+            )
+          })}
 
-      {/* Legend */}
-      <div className="absolute right-3 top-3 w-[188px] rounded-md border border-edge/80 bg-panel/85 p-2 backdrop-blur-sm">
-        <div className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-          Regions
-        </div>
-        {REGIONS.map((def) => {
-          const ui = regions[def.key]
-          return (
+          {/* Brain surface entry */}
+          <div className="flex items-center justify-between rounded px-1.5 py-1 text-[11.5px] hover:bg-white/5 transition border-t border-[#263854]/50 pt-1.5">
+            <div className="flex items-center gap-2">
+              <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-[#ede5d8]" />
+              <span className="text-[#f1f6ff]">Brain surface</span>
+            </div>
             <button
-              key={def.key}
-              onClick={() => toggleRegion(def.key)}
-              className={`flex w-full items-center gap-2 rounded px-1.5 py-1 text-left text-[11.5px] transition
-                ${ui.visible ? 'text-slate-200' : 'text-slate-600'} hover:bg-white/5`}
+              onClick={toggleBrain}
+              className="text-[#7588a5] hover:text-white"
+              title={brainVisible ? 'Hide brain surface' : 'Show brain surface'}
             >
-              <span
-                className="h-2.5 w-2.5 shrink-0 rounded-[3px] border"
-                style={{
-                  background: ui.visible ? def.colour : 'transparent',
-                  borderColor: def.colour,
-                }}
-              />
-              <span className="flex-1 truncate">{def.label}</span>
-              <span className="font-mono text-[10px] text-slate-500">
-                {report[def.key].predML.toFixed(1)}
-              </span>
+              {brainVisible ? '👁' : '🚫'}
             </button>
-          )
-        })}
-        <button
-          onClick={toggleBrain}
-          className={`mt-1 flex w-full items-center gap-2 rounded px-1.5 py-1 text-left text-[11.5px] transition
-            ${brainVisible ? 'text-slate-200' : 'text-slate-600'} hover:bg-white/5`}
-        >
-          <span
-            className="h-2.5 w-2.5 shrink-0 rounded-[3px] border border-slate-400"
-            style={{ background: brainVisible ? '#cfd9e6' : 'transparent' }}
-          />
-          <span className="flex-1">Brain surface</span>
-        </button>
+          </div>
+
+          {/* Neurons & Nerve Endings toggle */}
+          <div className="flex items-center justify-between rounded px-1.5 py-1 text-[11.5px] hover:bg-white/5 transition">
+            <div className="flex items-center gap-2">
+              <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-[#32d5ff] shadow-sm shadow-[#32d5ff]/50 animate-pulse" />
+              <span className="text-[#32d5ff] font-medium">Nerve Endings</span>
+            </div>
+            <button
+              onClick={() => setShowNerves(!showNerves)}
+              className="text-[#7588a5] hover:text-white"
+              title={showNerves ? 'Hide neural nerve network' : 'Show neural nerve network'}
+            >
+              {showNerves ? '👁' : '🚫'}
+            </button>
+          </div>
+        </div>
       </div>
 
-      {/* Opacity / cutaway control */}
-      <div className="absolute left-3 top-[92px] w-[232px] rounded-md border border-edge/80 bg-panel/85 px-3 py-2.5 backdrop-blur-sm">
-        <div className="mb-1 flex items-baseline justify-between">
-          <span className="text-[11.5px] font-medium" style={{ color: primaryDef.colour }}>
-            {primaryDef.label}
-          </span>
-          <span className="font-mono text-[10.5px] text-slate-400">
-            {report[primary].predML.toFixed(2)} mL
+      {/* Floating Card 2: "Visualization Mode" matching UI Sample 2 */}
+      <div className="absolute left-3 top-[204px] w-[212px] rounded-lg border border-[#263854] bg-[#0a1020]/90 p-2.5 backdrop-blur-md shadow-xl shadow-black/40">
+        <div className="mb-2 text-[10.5px] font-bold uppercase tracking-[0.12em] text-[#a4b5ce]">
+          Visualization Mode
+        </div>
+
+        <div className="grid grid-cols-3 gap-1 rounded-md bg-[#101a2b] p-0.5 border border-[#263854]">
+          {(['surface', 'overlay', 'combined'] as VisMode[]).map((mode) => (
+            <button
+              key={mode}
+              onClick={() => setVisMode(mode)}
+              className={`rounded py-1 text-[10px] font-semibold capitalize transition ${
+                visMode === mode
+                  ? 'bg-[#3478ff] text-white shadow-sm'
+                  : 'text-[#7588a5] hover:text-white'
+              }`}
+            >
+              {mode}
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-2.5 flex items-center justify-between">
+          <span className="text-[10px] uppercase font-semibold text-[#7588a5]">Opacity</span>
+          <span className="font-mono text-[10px] text-[#32d5ff]">
+            {brainOpacity.toFixed(2)}
           </span>
         </div>
         <input
           type="range"
           min={0}
           max={1}
-          step={0.01}
-          value={regions[primary].opacity}
-          onChange={(e) => setOpacity(primary, Number(e.target.value))}
-          className="w-full"
+          step={0.02}
+          value={brainOpacity}
+          onChange={(e) => setBrainOpacity(Number(e.target.value))}
+          className="mt-1 w-full"
         />
-        <div className="mt-1.5 flex items-center justify-between">
-          <span className="text-[10px] uppercase tracking-wider text-slate-500">Brain shell</span>
-          <input
-            type="range"
-            min={0}
-            max={0.6}
-            step={0.01}
-            value={brainOpacity}
-            onChange={(e) => setBrainOpacity(Number(e.target.value))}
-            className="w-[108px]"
-          />
-        </div>
+
         <div className="mt-2 flex gap-1.5">
           <button
             onClick={() => setWireframe(!wireframe)}
-            className={`flex-1 rounded border px-2 py-1 text-[10.5px] transition ${
+            className={`flex-1 rounded border px-2 py-0.5 text-[10px] font-medium transition ${
               wireframe
-                ? 'border-sky-500/60 bg-sky-500/15 text-sky-300'
-                : 'border-edge text-slate-400 hover:border-slate-500 hover:text-slate-200'
+                ? 'border-[#32d5ff] bg-[#32d5ff]/15 text-[#32d5ff]'
+                : 'border-[#263854] bg-[#101a2b] text-[#a4b5ce] hover:text-white'
             }`}
           >
             Lattice
           </button>
           <button
-            onClick={() => setIsolated(null)}
-            className="flex-1 rounded border border-edge px-2 py-1 text-[10.5px] text-slate-400 transition hover:border-slate-500 hover:text-slate-200"
+            onClick={() => {
+              setIsolated(null)
+              setVisMode('overlay')
+            }}
+            className="flex-1 rounded border border-[#263854] bg-[#101a2b] px-2 py-0.5 text-[10px] text-[#a4b5ce] hover:text-white"
           >
-            Reset view
+            Reset
           </button>
         </div>
       </div>
 
-      {isolated && (
-        <div className="absolute left-1/2 top-3 -translate-x-1/2 rounded-full border border-sky-500/40 bg-sky-500/10 px-3 py-1 text-[10.5px] text-sky-300 backdrop-blur-sm">
-          Isolated · {primaryDef.label} — click empty space to exit
-        </div>
-      )}
+      {/* Right-edge Vertical Orientation Strip [A, P, L, R, S, I] matching UI Sample 2 */}
+      <div className="absolute right-3 top-1/2 -translate-y-1/2 flex flex-col items-center gap-1 rounded-full border border-[#263854] bg-[#0a1020]/90 p-1 backdrop-blur-md shadow-lg shadow-black/50 z-10">
+        {(['A', 'P', 'L', 'R', 'S', 'I'] as const).map((letter) => (
+          <button
+            key={letter}
+            onClick={() => handleOrientationClick(letter)}
+            className="flex h-6 w-6 items-center justify-center rounded-full font-mono text-[10.5px] font-bold text-[#a4b5ce] transition hover:bg-[#3478ff] hover:text-white"
+            title={`Align Camera to ${letter} (${
+              letter === 'A' ? 'Anterior' : letter === 'P' ? 'Posterior' : letter === 'L' ? 'Left' : letter === 'R' ? 'Right' : letter === 'S' ? 'Superior' : 'Inferior'
+            })`}
+          >
+            {letter}
+          </button>
+        ))}
+      </div>
 
+      {/* Bottom Center Hint Text matching UI Sample 2 */}
+      <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 font-sans text-[10.5px] text-[#7588a5]">
+        Drag to orbit · Scroll to zoom · Right click to pan
+      </div>
+
+      {/* Bottom Left 3D Triad */}
       <div className="pointer-events-none absolute bottom-2 left-2">
         <AxisTriad />
       </div>
 
-      <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 text-[10px] tracking-wide text-slate-600">
-        drag to orbit · scroll to zoom · click a region to isolate
+      {/* Bottom Right Floating Action Bar (Cube, Reset, Fullscreen) matching UI Sample 2 */}
+      <div className="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-lg border border-[#263854] bg-[#0a1020]/90 p-1 backdrop-blur-md shadow-lg shadow-black/50 z-10">
+        <button
+          onClick={() => setShowGizmo(!showGizmo)}
+          className="flex h-7 w-7 items-center justify-center rounded text-slate-300 hover:bg-white/10 hover:text-white"
+          title="Toggle Orientation Cube"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-4 w-4">
+            <path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z" />
+            <path d="M12 12l8-4.5M12 12v9M12 12L4 7.5" />
+          </svg>
+        </button>
+        <button
+          onClick={() => {
+            useStore.getState().setIsolated(null)
+            handleOrientationClick('S')
+          }}
+          className="flex h-7 w-7 items-center justify-center rounded text-slate-300 hover:bg-white/10 hover:text-white"
+          title="Reset Camera View"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-4 w-4">
+            <path d="M3 12a9 9 0 109-9 9 9 0 00-6.4 2.7L3 8M3 3v5h5" />
+          </svg>
+        </button>
+        <button
+          onClick={() => {
+            const el = document.documentElement
+            if (!document.fullscreenElement) el.requestFullscreen?.()
+            else document.exitFullscreen?.()
+          }}
+          className="flex h-7 w-7 items-center justify-center rounded text-slate-300 hover:bg-white/10 hover:text-white"
+          title="Toggle Fullscreen"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-4 w-4">
+            <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+          </svg>
+        </button>
       </div>
+
+      {/* Isolated Region Banner */}
+      {isolated && (
+        <div className="absolute left-1/2 top-3 -translate-x-1/2 rounded-full border border-[#32d5ff]/50 bg-[#0a1020]/95 px-4 py-1 text-[11px] font-semibold text-[#32d5ff] backdrop-blur-md shadow-lg shadow-black/50">
+          Isolated Compartment: {primaryDef.label} — click empty space to return
+        </div>
+      )}
     </div>
   )
 }

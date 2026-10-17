@@ -55,10 +55,16 @@ async function digest(study: Study): Promise<string> {
   return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('')
 }
 
+import { useWorkspaceStore } from './workspaceStore'
+import { useStore } from './store'
+import { worldToVoxel } from '../lib/volume'
+
 export function StudyProvider({ children, fallback }: { children: ReactNode; fallback: (stage: string) => ReactNode }) {
   const [bundle, setBundle] = useState<StudyBundle | null>(null)
   const [stage, setStage] = useState('Generating study volumes')
   const generation = useLiveStudy((s) => s.generation)
+  const selectedStudyId = useWorkspaceStore((s) => s.selectedStudyId)
+
   // Select primitives/stable refs individually — a selector that returns a freshly
   // constructed object on every call breaks Zustand's snapshot equality check and
   // causes an infinite re-render loop the moment `status` actually becomes 'done'.
@@ -95,12 +101,12 @@ export function StudyProvider({ children, fallback }: { children: ReactNode; fal
           jobId = live.jobId
           liveMetadata = live.metadata
         } catch (err) {
-          console.error('Falling back to the demo phantom — live study fetch failed:', err)
-          study = generateStudy()
+          console.error('Falling back to the patient persona — live study fetch failed:', err)
+          study = generateStudy(selectedStudyId)
         }
       } else {
-        await step('Generating study volumes')
-        study = generateStudy()
+        await step('Generating 3D digital twin for persona')
+        study = generateStudy(selectedStudyId)
       }
       if (cancelled) return
 
@@ -136,18 +142,36 @@ export function StudyProvider({ children, fallback }: { children: ReactNode; fal
         : await digest(study)
       if (cancelled) return
 
+      const inv = invertAffine(study.affine)
       setBundle({
         study, brainMesh, brainLattice, meshes, lattices, masks, report, brainVoxels, crop,
-        inverseAffine: invertAffine(study.affine),
+        inverseAffine: inv,
         sha256,
         builtAt: new Date().toISOString(),
         mode, jobId, liveMetadata,
         uncertainty, uncertaintyScale,
       })
+
+      // Auto-focus crosshair on this persona's tumor centroid
+      if (study.persona?.tumour) {
+        const [cx, cy, cz] = study.persona.tumour.centre
+        const v = worldToVoxel(inv, cx, cy, cz)
+        useStore.getState().setVoxel([
+          Math.max(0, Math.min(study.dims[0] - 1, Math.round(v[0]))),
+          Math.max(0, Math.min(study.dims[1] - 1, Math.round(v[1]))),
+          Math.max(0, Math.min(study.dims[2] - 1, Math.round(v[2]))),
+        ])
+      } else {
+        useStore.getState().setVoxel([
+          Math.floor(study.dims[0] / 2),
+          Math.floor(study.dims[1] / 2),
+          Math.floor(study.dims[2] / 2),
+        ])
+      }
     })()
 
     return () => { cancelled = true }
-  }, [generation])
+  }, [generation, selectedStudyId])
 
   const value = useMemo(() => bundle, [bundle])
   if (!value) return <>{fallback(stage)}</>

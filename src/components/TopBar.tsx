@@ -1,128 +1,141 @@
 import { reportUrl } from '../lib/api'
+import { PATIENT_PERSONAS } from '../lib/personas'
 import { useLiveStudy } from '../state/liveStudy'
 import { useStudyOptional } from '../state/study'
 import { useStore } from '../state/store'
 import { useWorkspaceStore } from '../state/workspaceStore'
 
-const SAMPLES_LIST = [
-  { id: 'demo_phantom', label: 'Procedural Demo Phantom' },
-  { id: 'brats_206', label: 'Real Case · Decathlon BRATS_206' },
-  { id: 'brats_306', label: 'Real Case · Decathlon BRATS_306' },
-  { id: 'brats_449', label: 'Real Case · Decathlon BRATS_449' },
-  { id: 'brats_457', label: 'Real Case · Decathlon BRATS_457' },
-  { id: 'demo_unifocal_right', label: 'Synthetic · Unifocal Right' },
-  { id: 'demo_multifocal_left', label: 'Synthetic · Multifocal Left' },
-  { id: 'demo_large_diffuse', label: 'Synthetic · Large Diffuse' }
-]
-
 export default function TopBar() {
   const bundle = useStudyOptional()
   const setUploadOpen = useStore((s) => s.setUploadOpen)
   const setDatasetsOpen = useStore((s) => s.setDatasetsOpen)
+  const setPersonasOpen = useStore((s) => s.setPersonasOpen)
   const reset = useLiveStudy((s) => s.reset)
   const runSample = useLiveStudy((s) => s.runSample)
 
   const selectedStudyId = useWorkspaceStore((s) => s.selectedStudyId)
   const setSelectedStudyId = useWorkspaceStore((s) => s.setSelectedStudyId)
-  const activeWorkspace = useWorkspaceStore((s) => s.activeWorkspace)
 
   const handleStudyChange = (studyId: string) => {
-    setSelectedStudyId(studyId)
-    if (studyId === 'demo_phantom') {
+    if (studyId.startsWith('persona_') || studyId === 'demo_phantom') {
       reset()
+      setSelectedStudyId(studyId === 'demo_phantom' ? 'persona_01_sarah' : studyId)
     } else {
+      setSelectedStudyId(studyId)
       runSample(studyId)
     }
   }
 
+  const currentCaseLabel = bundle?.study.persona
+    ? `${bundle.study.persona.name} (${bundle.study.persona.age}y ${bundle.study.persona.gender[0]})`
+    : selectedStudyId === 'brats_449'
+    ? 'Decathlon BRATS_449'
+    : selectedStudyId
+
   return (
-    <header className="flex shrink-0 items-center gap-4 border-b border-edge bg-panel px-4 py-2">
-      {/* Brand & Logo */}
-      <div className="flex items-center gap-2.5">
-        <span className="flex h-6 w-6 items-center justify-center rounded-[7px] bg-gradient-to-br from-sky-400 to-indigo-600 shadow-sm shadow-sky-500/30">
-          <svg viewBox="0 0 24 24" fill="none" stroke="#0b1017" strokeWidth={2.2} className="h-3.5 w-3.5">
-            <path
-              d="M12 4a4 4 0 00-4 4 3 3 0 00-1 5.8V16a3 3 0 003 3h4a3 3 0 003-3v-2.2A3 3 0 0016 8a4 4 0 00-4-4z"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </span>
-        <span className="text-[14px] font-semibold tracking-tight text-slate-100">
-          NeuroScope<span className="text-sky-400"> 3D</span>
-        </span>
-        <span className="hidden rounded border border-edge/80 bg-panel-2 px-1.5 py-[1px] font-mono text-[9px] text-slate-500 xl:inline">
-          Studio v0.2.0
-        </span>
-      </div>
-
-      {/* Persistent Study Selector */}
-      <div className="flex items-center gap-2 border-l border-edge/80 pl-4">
-        <span className="hidden font-mono text-[10px] text-slate-500 sm:inline">STUDY:</span>
-        <select
-          value={bundle?.mode === 'live' && bundle.study.caseId ? bundle.study.caseId.toLowerCase() : selectedStudyId}
-          onChange={(e) => handleStudyChange(e.target.value)}
-          className="rounded border border-edge bg-panel-2 px-2.5 py-1 text-[11.5px] font-medium text-slate-200 focus:border-sky-500 focus:outline-none"
-        >
-          {SAMPLES_LIST.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.label}
-            </option>
-          ))}
-        </select>
-
-        {bundle && (
-          <span className="hidden items-center gap-1.5 font-mono text-[10px] text-slate-400 lg:flex">
-            <span
-              className={`h-1.5 w-1.5 rounded-full pulse-ring ${
-                bundle.mode === 'live' ? 'bg-sky-400' : 'bg-emerald-400'
-              }`}
-            />
-            {bundle.mode === 'live' ? 'LIVE BACKEND' : 'LOCAL PHANTOM'}
+    <header className="flex h-12 shrink-0 items-center justify-between border-b border-[#263854] bg-[#0a1020] px-4 text-slate-200">
+      {/* Brand & Studio Info */}
+      <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-[#3478ff] to-[#32d5ff] shadow-md shadow-[#3478ff]/30">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#05070d" strokeWidth={2.4} className="h-4 w-4">
+              <path
+                d="M12 4a4 4 0 00-4 4 3 3 0 00-1 5.8V16a3 3 0 003 3h4a3 3 0 003-3v-2.2A3 3 0 0016 8a4 4 0 00-4-4z"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
           </span>
-        )}
+          <span className="text-[15px] font-bold tracking-tight text-white">
+            NeuroScope <span className="text-[#32d5ff]">3D</span>
+          </span>
+        </div>
+
+        <span className="rounded border border-[#263854] bg-[#101a2b] px-2 py-0.5 font-mono text-[9.5px] text-[#7588a5]">
+          Studio v2.8.0
+        </span>
+
+        {/* Case Selector Dropdown matching UI Sample 2 */}
+        <div className="relative ml-2 flex items-center">
+          <select
+            value={bundle?.study.caseId ?? selectedStudyId}
+            onChange={(e) => handleStudyChange(e.target.value)}
+            className="appearance-none rounded-md border border-[#263854] bg-[#101a2b] py-1.5 pl-3 pr-7 text-[11.5px] font-medium text-[#f1f6ff] transition hover:border-[#3478ff] focus:border-[#32d5ff] focus:outline-none cursor-pointer"
+          >
+            <optgroup label="Clinical Patient Personas (10 Digital Twins)">
+              {PATIENT_PERSONAS.map((p) => (
+                <option key={p.id} value={p.id}>
+                  Case: {p.name} ({p.age}y {p.gender[0]}) — {p.lesionType}
+                </option>
+              ))}
+            </optgroup>
+            <optgroup label="Server Decathlon Cases">
+              <option value="brats_449">Case: Decathlon BRATS_449</option>
+              <option value="brats_206">Case: Decathlon BRATS_206</option>
+              <option value="brats_306">Case: Decathlon BRATS_306</option>
+              <option value="brats_457">Case: Decathlon BRATS_457</option>
+            </optgroup>
+          </select>
+          <span className="pointer-events-none absolute right-2 text-[10px] text-[#7588a5]">▾</span>
+        </div>
+
+        {/* Active Model & Execution Mode */}
+        <div className="hidden items-center gap-2 rounded-md border border-[#263854] bg-[#101a2b] px-2.5 py-1 text-[11px] lg:flex">
+          <span className="text-[#7588a5]">Run:</span>
+          <span className="font-semibold text-slate-200">SegResNet (BraTS-18)</span>
+          <span className="rounded bg-[#32d5ff]/15 px-1.5 py-0.5 font-mono text-[9.5px] font-semibold text-[#32d5ff] border border-[#32d5ff]/30">
+            2-Pass TTA
+          </span>
+        </div>
       </div>
 
-      {/* Persistent Model & Run Selector */}
-      <div className="hidden items-center gap-1.5 rounded border border-edge/60 bg-panel-2/60 px-2 py-0.5 font-mono text-[10px] text-slate-400 md:flex">
-        <span className="text-slate-500">RUN:</span>
-        <span className="font-semibold text-slate-300">SegResNet (BraTS-18)</span>
-        <span className="text-slate-600">·</span>
-        <span className="text-sky-400">2-Pass TTA</span>
-      </div>
-
-      {/* Actions */}
-      <div className="ml-auto flex items-center gap-2.5">
+      {/* Right Actions */}
+      <div className="flex items-center gap-2.5">
         <button
           onClick={() => setDatasetsOpen(true)}
-          className="hidden rounded border border-edge bg-panel-2 px-2.5 py-1 text-[11px] text-slate-300 transition hover:border-slate-500 hover:text-slate-100 sm:inline"
+          className="flex items-center gap-1.5 rounded-md border border-[#263854] bg-[#101a2b] px-3 py-1.5 text-[11px] font-medium text-[#a4b5ce] transition hover:border-[#3478ff] hover:text-white"
         >
-          Datasets Gallery
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-3.5 w-3.5">
+            <rect x="3" y="3" width="7" height="7" rx="1" />
+            <rect x="14" y="3" width="7" height="7" rx="1" />
+            <rect x="14" y="14" width="7" height="7" rx="1" />
+            <rect x="3" y="14" width="7" height="7" rx="1" />
+          </svg>
+          <span>Datasets Gallery</span>
         </button>
 
         <button
           onClick={() => setUploadOpen(true)}
-          className="rounded border border-sky-500/50 bg-sky-500/10 px-2.5 py-1 text-[11px] font-medium text-sky-300 transition hover:bg-sky-500/20"
+          className="flex items-center gap-1.5 rounded-md bg-[#3478ff] px-3 py-1.5 text-[11px] font-medium text-white shadow-md shadow-[#3478ff]/30 transition hover:bg-[#2563eb]"
         >
-          Upload case
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-3.5 w-3.5">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" />
+          </svg>
+          <span>Upload Case</span>
         </button>
 
         <button
           onClick={() => bundle?.mode === 'live' && bundle.jobId && window.open(reportUrl(bundle.jobId), '_blank')}
           disabled={bundle?.mode !== 'live'}
-          title={bundle?.mode === 'live' ? 'Open the provenance report' : 'Upload or run a real case to download full report'}
-          className="rounded border border-edge px-2.5 py-1 text-[11px] text-slate-300 transition hover:border-slate-500 hover:text-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
+          title={bundle?.mode === 'live' ? 'Open provenance report' : 'Upload or run live study to view report'}
+          className="flex items-center gap-1.5 rounded-md border border-[#263854] bg-[#101a2b] px-3 py-1.5 text-[11px] font-medium text-[#a4b5ce] transition hover:border-[#3478ff] hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
         >
-          Report
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-3.5 w-3.5">
+            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+            <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" />
+          </svg>
+          <span>Report</span>
         </button>
 
-        <span
-          className="flex h-7 w-7 items-center justify-center rounded-full border border-edge bg-panel-2 text-[10px] font-semibold text-slate-300 shadow-sm"
-          title="Clinical Investigator Session"
+        {/* User Avatar Circle */}
+        <div
+          className="flex h-7 w-7 items-center justify-center rounded-full border border-[#3478ff]/50 bg-[#152238] font-mono text-[10.5px] font-bold text-[#32d5ff] shadow-sm shadow-[#3478ff]/20"
+          title="Lead Radiologist / Investigator"
         >
-          CI
-        </span>
+          AD
+        </div>
       </div>
     </header>
   )
 }
+

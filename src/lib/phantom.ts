@@ -1,3 +1,5 @@
+import type { PatientPersona } from './personas'
+import { getPersonaById } from './personas'
 import type { Mat4, ScalarVolume, SequenceName, Vec3 } from './volume'
 import { makeAffine, SEQUENCES, voxelToWorld } from './volume'
 
@@ -22,6 +24,7 @@ export interface Study {
   /** parenchyma only (CSF excluded) — this is what the 3D shell is meshed from */
   surface: Uint8Array
   caseId: string
+  persona?: PatientPersona
 }
 
 /** Smooth value noise on a coarse lattice, sampled in normalised volume space. */
@@ -90,24 +93,28 @@ function buildLabels(
   return out
 }
 
-export function generateStudy(caseId = 'BraTS2021_00657'): Study {
+export function generateStudy(caseIdOrPersona = 'persona_01_sarah'): Study {
+  const persona = getPersonaById(caseIdOrPersona)
   const dims: Vec3 = [160, 192, 160]
   const spacing: Vec3 = [1.1, 1.1, 1.1]
   const affine = makeAffine(spacing, dims)
   const [nx, ny, nz] = dims
   const total = nx * ny * nz
 
-  const nSurface = makeNoise(7, 10)
-  const nSulci = makeNoise(21, 18)
-  const nTissue = makeNoise(99, 24)
-  const nGrain = makeNoise(5, 40)
-  const nTumA = makeNoise(1337, 8)
-  const nTumB = makeNoise(4242, 8)
+  const seed = persona.seed
+  const nSurface = makeNoise(seed % 37 + 7, 10)
+  const nSulci = makeNoise((seed * 3) % 89 + 21, 18)
+  const nTissue = makeNoise((seed * 7) % 97 + 99, 24)
+  const nGrain = makeNoise((seed * 11) % 43 + 5, 40)
+  const nTumA = makeNoise((seed * 13) % 2000 + 1337, 8)
+  const nTumB = makeNoise((seed * 17) % 3000 + 4242, 8)
 
   const tissue = new Uint8Array(total)
   const brain = new Uint8Array(total)
 
-  const RX = 72, RY = 92, RZ = 70
+  const RX = persona.brainScale?.rx ?? 72
+  const RY = persona.brainScale?.ry ?? 92
+  const RZ = persona.brainScale?.rz ?? 70
 
   for (let k = 0; k < nz; k++) {
     for (let j = 0; j < ny; j++) {
@@ -136,10 +143,6 @@ export function generateStudy(caseId = 'BraTS2021_00657'): Study {
 
         let t: number
         if (depth < 0.26) {
-          // Sulci are the thin zero level set of the fold field, not blobs; the
-          // sheet narrows with depth so they taper the way real sulci do.
-          // Lower frequency and a wider sheet, so each sulcus spans 2-3 voxels and
-          // survives meshing — a sub-voxel groove just disappears into the surface.
           const fold = nSulci(u * 1.9, v * 1.9, w * 1.9)
           const width = 0.3 * (1 - depth / 0.26) + 0.04
           t = Math.abs(fold) < width ? TISSUE.CSF : TISSUE.GREY
@@ -158,7 +161,6 @@ export function generateStudy(caseId = 'BraTS2021_00657'): Study {
         if (ventricle) t = TISSUE.CSF
 
         // Interhemispheric fissure, open superiorly, closed at the corpus callosum.
-        // Wide enough that the two hemispheres read as separate bodies in 3D.
         const fissure = Math.abs(x) < 6.0 + 1.4 * nSurface(u, v * 2, w) && z > -4 && Math.abs(y) < 86
         if (fissure && !stem) t = TISSUE.CSF
         if (cereb) {
@@ -172,18 +174,64 @@ export function generateStudy(caseId = 'BraTS2021_00657'): Study {
     }
   }
 
-  // Expert annotation and a deliberately imperfect model output.
-  const expertSpec: TumourSpec = { centre: [33, 7, 13], rNcr: 11.4, rEt: 15.4, rEd: 20.8, phase: 0 }
-  const predSpec: TumourSpec = {
-    centre: [34.3, 5.9, 13.9], rNcr: 10.7, rEt: 15.1, rEd: 21.6, phase: 1,
-  }
   const warpA = (a: number, b: number, c: number) => nTumA(a * 0.5 + 0.5, b * 0.5 + 0.5, c * 0.5 + 0.5)
   const warpB = (a: number, b: number, c: number) =>
     0.82 * nTumA(a * 0.5 + 0.5, b * 0.5 + 0.5, c * 0.5 + 0.5) +
     0.30 * nTumB(a * 0.5 + 0.5, b * 0.5 + 0.5, c * 0.5 + 0.5)
 
-  const expert = buildLabels(dims, affine, expertSpec, warpA)
-  const predicted = buildLabels(dims, affine, predSpec, warpB)
+  const expertSpec: TumourSpec | null = persona.tumour
+    ? {
+        centre: persona.tumour.centre,
+        rNcr: persona.tumour.rNcr,
+        rEt: persona.tumour.rEt,
+        rEd: persona.tumour.rEd,
+        phase: 0,
+      }
+    : null
+
+  const predSpec: TumourSpec | null = persona.tumour
+    ? {
+        centre: [
+          persona.tumour.centre[0] + 1.2,
+          persona.tumour.centre[1] - 0.9,
+          persona.tumour.centre[2] + 0.8,
+        ],
+        rNcr: Math.max(0, persona.tumour.rNcr - 0.4),
+        rEt: Math.max(0, persona.tumour.rEt - 0.3),
+        rEd: persona.tumour.rEd + 0.7,
+        phase: 1,
+      }
+    : null
+
+  const expert = expertSpec ? buildLabels(dims, affine, expertSpec, warpA) : new Uint8Array(total)
+  const predicted = predSpec ? buildLabels(dims, affine, predSpec, warpB) : new Uint8Array(total)
+
+  if (persona.tumour && persona.secondaryTumour) {
+      const secExpertSpec: TumourSpec = {
+        centre: persona.secondaryTumour.centre,
+        rNcr: persona.secondaryTumour.rNcr,
+        rEt: persona.secondaryTumour.rEt,
+        rEd: persona.secondaryTumour.rEd,
+        phase: 5,
+      }
+      const secPredSpec: TumourSpec = {
+        centre: [
+          persona.secondaryTumour.centre[0] - 0.8,
+          persona.secondaryTumour.centre[1] + 1.1,
+          persona.secondaryTumour.centre[2] - 0.6,
+        ],
+        rNcr: Math.max(0, persona.secondaryTumour.rNcr - 0.3),
+        rEt: Math.max(0, persona.secondaryTumour.rEt - 0.2),
+        rEd: persona.secondaryTumour.rEd + 0.5,
+        phase: 6,
+      }
+      const secExpert = buildLabels(dims, affine, secExpertSpec, warpA)
+      const secPred = buildLabels(dims, affine, secPredSpec, warpB)
+      for (let p = 0; p < total; p++) {
+        if (secExpert[p]) expert[p] = secExpert[p]
+        if (secPred[p]) predicted[p] = secPred[p]
+      }
+    }
 
   // Burn the expert annotation into the tissue map so the imagery matches it.
   const surface = new Uint8Array(total)
@@ -226,5 +274,5 @@ export function generateStudy(caseId = 'BraTS2021_00657'): Study {
     sequences[seq] = { data, dims, spacing, affine }
   }
 
-  return { dims, spacing, affine, sequences, expert, predicted, brain, surface, caseId }
+  return { dims, spacing, affine, sequences, expert, predicted, brain, surface, caseId: persona.id, persona }
 }

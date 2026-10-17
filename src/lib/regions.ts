@@ -15,9 +15,9 @@ export interface RegionDef {
 }
 
 export const REGIONS: RegionDef[] = [
-  { key: 'WT', label: 'Whole Tumour', short: 'WT', codes: [BRATS.NCR, BRATS.ED, BRATS.ET], colour: '#4fc9a6', hex: 0x4fc9a6 },
-  { key: 'TC', label: 'Tumour Core', short: 'TC', codes: [BRATS.NCR, BRATS.ET], colour: '#f2a75c', hex: 0xf2a75c },
-  { key: 'ET', label: 'Enhancing Tumour', short: 'ET', codes: [BRATS.ET], colour: '#e8738e', hex: 0xe8738e },
+  { key: 'WT', label: 'Whole Tumour', short: 'WT', codes: [BRATS.NCR, BRATS.ED, BRATS.ET], colour: '#10b981', hex: 0x10b981 },
+  { key: 'TC', label: 'Tumour Core', short: 'TC', codes: [BRATS.NCR, BRATS.ET], colour: '#f59e0b', hex: 0xf59e0b },
+  { key: 'ET', label: 'Enhancing Tumour', short: 'ET', codes: [BRATS.ET], colour: '#f43f5e', hex: 0xf43f5e },
 ]
 
 export function regionMask(label: Uint8Array, codes: number[]): Uint8Array {

@@ -1,0 +1,34 @@
+{
+  "id": "case_03_bilateral_multifocal_mets",
+  "name": "Bilateral Multifocal Lesions",
+  "clinical_presentation": "Two distinct well-circumscribed lesions with intense contrast enhancement. Exercises connected-component analysis demonstrating 2 disjoint tumor clusters.",
+  "tumor_location": "Bilateral Hemispheres (Left Frontal + Right Parieto-Occipital)",
+  "metrics": {
+    "whole_tumor_ml": 25.7,
+    "tumor_core_ml": 9.8,
+    "enhancing_tumor_ml": 8.38,
+    "edema_ml": 15.9
+  },
+  "centroid_slice": {
+    "x": 69,
+    "y": 86,
+    "z": 83
+  },
+  "matrix_shape": [
+    144,
+    176,
+    144
+  ],
+  "voxel_spacing_mm": [
+    1.0,
+    1.0,
+    1.0
+  ],
+  "files": [
+    "T1.nii.gz",
+    "T1Gd.nii.gz",
+    "T2.nii.gz",
+    "FLAIR.nii.gz",
+    "label.nii.gz"
+  ]
+}

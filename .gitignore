@@ -40,3 +40,4 @@ backend/data/decathlon/
 
 .DS_Store
 Thumbs.db
+*.timestamp-*.mjs

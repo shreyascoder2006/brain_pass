@@ -1,0 +1,34 @@
+{
+  "id": "case_07_butterfly_corpus_callosum",
+  "name": "Bifrontal Butterfly Glioma (Corpus Callosum)",
+  "clinical_presentation": "Trans-callosal lesion bridging across the midline into both frontal lobes with symmetric wing-like flair hyperintensity.",
+  "tumor_location": "Genu of Corpus Callosum / Bi-hemispheric (Midline)",
+  "metrics": {
+    "whole_tumor_ml": 84.86,
+    "tumor_core_ml": 28.17,
+    "enhancing_tumor_ml": 23.34,
+    "edema_ml": 56.7
+  },
+  "centroid_slice": {
+    "x": 71,
+    "y": 103,
+    "z": 79
+  },
+  "matrix_shape": [
+    144,
+    176,
+    144
+  ],
+  "voxel_spacing_mm": [
+    1.0,
+    1.0,
+    1.0
+  ],
+  "files": [
+    "T1.nii.gz",
+    "T1Gd.nii.gz",
+    "T2.nii.gz",
+    "FLAIR.nii.gz",
+    "label.nii.gz"
+  ]
+}

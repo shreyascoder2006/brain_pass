@@ -1,0 +1,34 @@
+{
+  "id": "case_01_right_frontal_gbm",
+  "name": "Right Frontal Glioblastoma (High-Grade)",
+  "clinical_presentation": "Large aggressive high-grade glioma with thick nodular enhancing rim, central necrotic core, and extensive surrounding vasogenic edema with sulcal effacement.",
+  "tumor_location": "Right Frontal Lobe (+x, +y)",
+  "metrics": {
+    "whole_tumor_ml": 50.46,
+    "tumor_core_ml": 20.35,
+    "enhancing_tumor_ml": 13.19,
+    "edema_ml": 30.11
+  },
+  "centroid_slice": {
+    "x": 99,
+    "y": 105,
+    "z": 83
+  },
+  "matrix_shape": [
+    144,
+    176,
+    144
+  ],
+  "voxel_spacing_mm": [
+    1.0,
+    1.0,
+    1.0
+  ],
+  "files": [
+    "T1.nii.gz",
+    "T1Gd.nii.gz",
+    "T2.nii.gz",
+    "FLAIR.nii.gz",
+    "label.nii.gz"
+  ]
+}
