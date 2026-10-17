@@ -570,6 +570,10 @@ export default function ThreeBrainTwin() {
   const [showNerves, setShowNerves] = useState(true)
   const [presetOrientation, setPresetOrientation] = useState<'A' | 'P' | 'L' | 'R' | 'S' | 'I' | null>(null)
   const [showGizmo, setShowGizmo] = useState(true)
+  // Both default closed — these floating cards used to sit open over the twin
+  // and block the one thing this panel exists to show.
+  const [regionsOpen, setRegionsOpen] = useState(false)
+  const [visModeOpen, setVisModeOpen] = useState(false)
 
   const primary: RegionKey = isolated ?? 'WT'
   const primaryDef = REGIONS.find((r) => r.key === primary)!
@@ -596,11 +600,21 @@ export default function ThreeBrainTwin() {
         <Scene visMode={visMode} showNerves={showNerves} presetOrientation={presetOrientation} />
       </Canvas>
 
-      {/* Floating Card 1: "Segmentation Regions" matching UI Sample 2 */}
-      <div className="absolute left-3 top-3 w-[212px] rounded-lg border border-[#263854] bg-[#0a1020]/90 p-2.5 backdrop-blur-md shadow-xl shadow-black/40">
-        <div className="mb-2 text-[10.5px] font-bold uppercase tracking-[0.12em] text-[#a4b5ce]">
-          Segmentation Regions
-        </div>
+      {/* Both cards stack in one flex column at a fixed anchor, so expanding
+          one can never overlap the other's fixed pixel offset. */}
+      <div className="absolute left-3 top-3 z-10 flex flex-col items-start gap-2">
+
+      {/* Floating Card 1: "Segmentation Regions" — collapsed by default so it
+          doesn't sit on top of the twin it's meant to be controlling. */}
+      <div className={`rounded-lg border border-[#263854] bg-[#0a1020]/90 backdrop-blur-md shadow-xl shadow-black/40 ${regionsOpen ? 'w-[212px] p-2.5' : 'w-auto'}`}>
+        <button
+          onClick={() => setRegionsOpen(!regionsOpen)}
+          className={`flex w-full items-center justify-between gap-3 text-[10.5px] font-bold uppercase tracking-[0.12em] text-[#a4b5ce] hover:text-white ${regionsOpen ? 'mb-2' : 'px-3 py-2'}`}
+        >
+          <span>Segmentation Regions</span>
+          <span className={`text-[9px] transition-transform ${regionsOpen ? 'rotate-180' : ''}`}>▾</span>
+        </button>
+        {regionsOpen && (
         <div className="space-y-1">
           {REGIONS.map((def) => {
             const ui = regions[def.key]
@@ -667,14 +681,20 @@ export default function ThreeBrainTwin() {
             </button>
           </div>
         </div>
+        )}
       </div>
 
-      {/* Floating Card 2: "Visualization Mode" matching UI Sample 2 */}
-      <div className="absolute left-3 top-[204px] w-[212px] rounded-lg border border-[#263854] bg-[#0a1020]/90 p-2.5 backdrop-blur-md shadow-xl shadow-black/40">
-        <div className="mb-2 text-[10.5px] font-bold uppercase tracking-[0.12em] text-[#a4b5ce]">
-          Visualization Mode
-        </div>
-
+      {/* Floating Card 2: "Visualization Mode" — collapsed by default, same reason. */}
+      <div className={`rounded-lg border border-[#263854] bg-[#0a1020]/90 backdrop-blur-md shadow-xl shadow-black/40 ${visModeOpen ? 'w-[212px] p-2.5' : 'w-auto'}`}>
+        <button
+          onClick={() => setVisModeOpen(!visModeOpen)}
+          className={`flex w-full items-center justify-between gap-3 text-[10.5px] font-bold uppercase tracking-[0.12em] text-[#a4b5ce] hover:text-white ${visModeOpen ? 'mb-2' : 'px-3 py-2'}`}
+        >
+          <span>Visualization Mode</span>
+          <span className={`text-[9px] transition-transform ${visModeOpen ? 'rotate-180' : ''}`}>▾</span>
+        </button>
+        {visModeOpen && (
+        <>
         <div className="grid grid-cols-3 gap-1 rounded-md bg-[#101a2b] p-0.5 border border-[#263854]">
           {(['surface', 'overlay', 'combined'] as VisMode[]).map((mode) => (
             <button
@@ -728,6 +748,10 @@ export default function ThreeBrainTwin() {
             Reset
           </button>
         </div>
+        </>
+        )}
+      </div>
+
       </div>
 
       {/* Right-edge Vertical Orientation Strip [A, P, L, R, S, I] matching UI Sample 2 */}
