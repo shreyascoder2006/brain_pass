@@ -15,6 +15,7 @@ export default function TopBar() {
   const setDatasetsOpen = useStore((s) => s.setDatasetsOpen)
   const setPersonasOpen = useStore((s) => s.setPersonasOpen)
   const setReportOpen = useStore((s) => s.setReportOpen)
+  const setWhatsappOpen = useStore((s) => s.setWhatsappOpen)
   const reset = useLiveStudy((s) => s.reset)
   const runSample = useLiveStudy((s) => s.runSample)
 
@@ -41,7 +42,11 @@ export default function TopBar() {
     <header className="flex h-12 shrink-0 items-center justify-between border-b border-[#263854] bg-[#0a1020] px-4 text-slate-200">
       {/* Brand & Studio Info */}
       <div className="flex items-center gap-3">
-        <div className="flex items-center gap-2">
+        <button
+          onClick={() => useWorkspaceStore.getState().setActiveWorkspace('landing')}
+          title="Return to Tumor Lens Neural Journey 3D Landing Page"
+          className="flex items-center gap-2 transition hover:opacity-85 cursor-pointer text-left"
+        >
           <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-[#3478ff] to-[#32d5ff] shadow-md shadow-[#3478ff]/30">
             <svg viewBox="0 0 24 24" fill="none" stroke="#05070d" strokeWidth={2.4} className="h-4 w-4">
               <path
@@ -54,7 +59,15 @@ export default function TopBar() {
           <span className="text-[15px] font-bold tracking-tight text-white">
             NeuroScope <span className="text-[#32d5ff]">3D</span>
           </span>
-        </div>
+        </button>
+
+        <button
+          onClick={() => useWorkspaceStore.getState().setActiveWorkspace('landing')}
+          title="View Tumor Lens Neural Journey 3D Landing Page"
+          className="rounded border border-[#32d5ff]/40 bg-[#32d5ff]/15 px-2 py-0.5 font-mono text-[9.5px] font-semibold text-[#32d5ff] transition hover:bg-[#32d5ff]/25"
+        >
+          🌟 3D Journey
+        </button>
 
         <span className="rounded border border-[#263854] bg-[#101a2b] px-2 py-0.5 font-mono text-[9.5px] text-[#7588a5]">
           Studio v2.8.0
@@ -129,6 +142,18 @@ export default function TopBar() {
             <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" />
           </svg>
           <span>Report</span>
+        </button>
+
+        <button
+          onClick={() => setWhatsappOpen(true)}
+          title="Open WhatsApp Clinic Bridge — Pair QR Code & Dispatch Reports"
+          className="flex items-center gap-1.5 rounded-md border border-emerald-500/60 bg-[#06261c] px-3 py-1.5 text-[11px] font-semibold text-emerald-300 shadow-md shadow-emerald-950/40 transition hover:bg-emerald-900/60 hover:border-emerald-400 hover:text-white"
+        >
+          <svg viewBox="0 0 24 24" fill="currentColor" className="h-3.5 w-3.5 text-emerald-400">
+            <path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.816 9.816 0 0012.04 2z" />
+          </svg>
+          <span>WhatsApp Clinic</span>
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
         </button>
 
         {/* User Avatar Circle */}

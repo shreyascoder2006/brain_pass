@@ -7,6 +7,7 @@ import NavigationSidebar from './components/NavigationSidebar'
 import ReportModal from './components/ReportModal'
 import TopBar from './components/TopBar'
 import UploadPanel from './components/UploadPanel'
+import WhatsAppModal from './components/WhatsAppModal'
 import CommandCentreWorkspace from './components/workspaces/CommandCentreWorkspace'
 import NeuroLearnWorkspace from './components/workspaces/NeuroLearnWorkspace'
 import PatientWorkspace from './components/workspaces/PatientWorkspace'
@@ -15,6 +16,7 @@ import ResearchLabWorkspace from './components/workspaces/ResearchLabWorkspace'
 import ReviewWorkspace from './components/workspaces/ReviewWorkspace'
 import TrustExplainabilityWorkspace from './components/workspaces/TrustExplainabilityWorkspace'
 import ViewerWorkspace from './components/workspaces/ViewerWorkspace'
+import { useEffect } from 'react'
 import { useShortcuts } from './lib/useShortcuts'
 import { useStore } from './state/store'
 import { StudyProvider } from './state/study'
@@ -50,6 +52,32 @@ export default function App() {
   const personasOpen = useStore((s) => s.personasOpen)
   const setPersonasOpen = useStore((s) => s.setPersonasOpen)
 
+  useEffect(() => {
+    const handleMsg = (e: MessageEvent) => {
+      if (e.data?.type === 'ENTER_STUDIO') {
+        useWorkspaceStore.getState().setActiveWorkspace('dashboard')
+      } else if (e.data?.type === 'OPEN_UPLOAD') {
+        useWorkspaceStore.getState().setActiveWorkspace('dashboard')
+        useStore.getState().setUploadOpen(true)
+      }
+    }
+    window.addEventListener('message', handleMsg)
+    return () => window.removeEventListener('message', handleMsg)
+  }, [])
+
+  if (activeWorkspace === 'landing') {
+    return (
+      <div className="relative h-screen w-screen overflow-hidden bg-[#020617]">
+        <iframe
+          src="/landing.html"
+          title="Tumor Lens — Transparent Neural Journey"
+          className="h-full w-full border-0"
+        />
+        <WhatsAppModal />
+      </div>
+    )
+  }
+
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-ink select-none font-sans">
       <Shortcuts />
@@ -58,6 +86,7 @@ export default function App() {
       <UploadPanel />
       <DatasetsPanel />
       <PersonasModal open={personasOpen} onClose={() => setPersonasOpen(false)} />
+      <WhatsAppModal />
       <HelpPanel />
 
       {/* Main Workspace Layout */}

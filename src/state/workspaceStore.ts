@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 
 export type WorkspaceKey =
+  | 'landing'
   | 'dashboard'
   | 'viewer'
   | 'review'
@@ -362,7 +363,7 @@ export const COHORT_DATA: CohortCaseResult[] = [
 ]
 
 export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
-  activeWorkspace: 'dashboard',
+  activeWorkspace: 'landing',
   setActiveWorkspace: (activeWorkspace) => set({ activeWorkspace }),
 
   selectedStudyId: 'demo_phantom',

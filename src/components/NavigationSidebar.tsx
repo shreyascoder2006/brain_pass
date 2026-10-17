@@ -12,6 +12,16 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   {
+    key: 'landing',
+    label: 'Neural Journey',
+    badge: '3D Twin',
+    icon: (active) => (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.2 : 1.8} className="h-4 w-4">
+        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" strokeLinejoin="round" />
+      </svg>
+    )
+  },
+  {
     key: 'dashboard',
     label: 'Command Centre',
     icon: (active) => (
@@ -163,6 +173,25 @@ export default function NavigationSidebar() {
           )
         })}
       </nav>
+
+      {/* WhatsApp Clinic Bridge Launcher */}
+      <div className="px-3 pb-2">
+        <button
+          onClick={() => useStore.getState().setWhatsappOpen(true)}
+          title="Open WhatsApp Clinic Bridge — Scan QR & Send Reports to Patients"
+          className="w-full flex items-center justify-between rounded-lg border border-emerald-500/40 bg-[#061e16] px-3 py-2 text-[11px] font-medium text-emerald-300 transition hover:bg-emerald-950 hover:border-emerald-400 shadow-sm shadow-emerald-500/10"
+        >
+          <span className="flex items-center gap-2">
+            <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4 text-emerald-400">
+              <path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.816 9.816 0 0012.04 2z" />
+            </svg>
+            <span className="text-emerald-100 font-semibold">WhatsApp Clinic</span>
+          </span>
+          <span className="rounded bg-emerald-500/20 px-1.5 py-0.5 font-mono text-[9px] text-emerald-300 border border-emerald-500/40">
+            QR / Send
+          </span>
+        </button>
+      </div>
 
       {/* Patient Personas Launcher Pill */}
       <div className="px-3 pb-2">

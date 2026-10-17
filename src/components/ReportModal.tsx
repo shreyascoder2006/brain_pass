@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { reportUrl } from '../lib/api'
+import { reportUrl, sendWhatsAppReport } from '../lib/api'
 import { captureRegistry } from '../lib/captureRegistry'
 import { buildFindings, type Findings } from '../lib/findings'
 import { centroidVoxel, REGIONS, regionMask } from '../lib/regions'
@@ -60,7 +60,29 @@ export default function ReportModal() {
   const [findings, setFindings] = useState<Findings | null>(null)
   const [generatedAt, setGeneratedAt] = useState('')
 
+  const [waOpen, setWaOpen] = useState(false)
+  const [waPhone, setWaPhone] = useState('+91 98765 43210')
+  const [waSending, setWaSending] = useState(false)
+  const [waResult, setWaResult] = useState<string | null>(null)
+
   const reportId = useMemo(() => `NS-${bundle.sha256.slice(0, 10).toUpperCase()}`, [bundle.sha256])
+
+  const handleSendWhatsApp = async () => {
+    if (!waPhone.trim()) return
+    setWaSending(true)
+    setWaResult(null)
+    try {
+      const caseId = bundle.study.caseId || 'case_01_right_frontal_gbm'
+      const patientName = bundle.study.persona?.name || 'Patient'
+      const caption = `📄 *NeuroScope 3D Clinical Report for ${patientName}*\nCase: ${caseId.toUpperCase()}\nProtocol: Multiparametric Brain MRI`
+      const res = await sendWhatsAppReport(waPhone.trim(), caseId, caption)
+      setWaResult(res.message || 'Report PDF dispatched successfully via WhatsApp!')
+    } catch (err: any) {
+      setWaResult(`Error: ${err.message}`)
+    } finally {
+      setWaSending(false)
+    }
+  }
 
   useEffect(() => {
     if (!reportOpen) {
@@ -162,6 +184,16 @@ export default function ReportModal() {
         </div>
         <div className="flex items-center gap-2">
           <button
+            onClick={() => setWaOpen(!waOpen)}
+            disabled={stage !== 'ready'}
+            className="flex items-center gap-1.5 rounded bg-emerald-600 px-3 py-1.5 text-[11.5px] font-medium text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-40 shadow-sm shadow-emerald-900/40"
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor" className="h-3.5 w-3.5">
+              <path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.816 9.816 0 0012.04 2z" />
+            </svg>
+            <span>{waOpen ? 'Hide WhatsApp' : 'Send via WhatsApp'}</span>
+          </button>
+          <button
             onClick={() => window.print()}
             disabled={stage !== 'ready'}
             className="rounded bg-sky-500 px-3 py-1.5 text-[11.5px] font-medium text-white transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-40"
@@ -176,6 +208,31 @@ export default function ReportModal() {
           </button>
         </div>
       </div>
+
+      {waOpen && (
+        <div className="no-print flex items-center justify-between gap-3 border-b border-emerald-500/30 bg-[#061e16] px-4 py-2 text-[11.5px] text-emerald-200">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-emerald-300">Recipient Phone:</span>
+            <input
+              type="text"
+              placeholder="+91 98765 43210"
+              value={waPhone}
+              onChange={(e) => setWaPhone(e.target.value)}
+              className="rounded border border-emerald-600/50 bg-[#02130e] px-2.5 py-1 text-white placeholder-emerald-700 focus:outline-none focus:border-emerald-400 w-52 font-mono text-[11px]"
+            />
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleSendWhatsApp}
+              disabled={waSending || !waPhone.trim()}
+              className="rounded bg-emerald-500 px-3.5 py-1 font-semibold text-black transition hover:bg-emerald-400 disabled:opacity-40 text-[11px]"
+            >
+              {waSending ? 'Dispatching...' : 'Send PDF Now'}
+            </button>
+            {waResult && <span className="font-mono text-[10.5px] text-emerald-300">{waResult}</span>}
+          </div>
+        </div>
+      )}
 
       <div className="min-h-0 flex-1 overflow-y-auto bg-slate-500 p-6">
         {stage !== 'ready' || !findings ? (

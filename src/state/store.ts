@@ -97,6 +97,10 @@ interface State {
   reportOpen: boolean
   setReportOpen: (open: boolean) => void
 
+  /** WhatsApp bridge connection and QR pairing modal */
+  whatsappOpen: boolean
+  setWhatsappOpen: (open: boolean) => void
+
   /** true only while ReportModal is capturing the 3D view — the long crosshair
    *  lines read as navigation chrome, not something a static report image
    *  should show. */
@@ -173,6 +177,9 @@ export const useStore = create<State>((set) => ({
 
   reportOpen: false,
   setReportOpen: (reportOpen) => set({ reportOpen }),
+
+  whatsappOpen: false,
+  setWhatsappOpen: (whatsappOpen) => set({ whatsappOpen }),
 
   hideCrosshair: false,
   setHideCrosshair: (hideCrosshair) => set({ hideCrosshair }),

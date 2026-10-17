@@ -25,7 +25,7 @@ import nibabel as nib
 import numpy as np
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from starlette.concurrency import run_in_threadpool
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -47,6 +47,8 @@ from neuroscope.regions import (
 )
 from neuroscope.validate import SEQUENCES, validate_label, validate_study
 from server.viewer import prepare_viewer
+import server.whatsapp as wa
+import server.pdf_report as pdf_gen
 
 ROOT = Path(__file__).resolve().parents[1]
 SETTINGS = Settings.from_env()
@@ -713,3 +715,78 @@ def _report_html(m: dict) -> str:
         f"<h2>Provenance, warnings and limitations</h2><pre>{html.escape(json.dumps(m, indent=2))}</pre>"
         '<button onclick="print()">Print / Save as PDF</button></body></html>'
     )
+
+
+# --- WhatsApp & Clinical Report Delivery Endpoints ---
+
+@app.get("/api/whatsapp/status")
+def whatsapp_status():
+    """Check connectivity and QR status of the Baileys WhatsApp bridge."""
+    return wa.get_bridge_status()
+
+
+@app.post("/api/whatsapp/pair-code")
+async def whatsapp_pair_code(request: Request):
+    """Request an 8-character pairing code to connect WhatsApp via phone number."""
+    body = await request.json()
+    phone = str(body.get("phone", "")).strip()
+    if not phone:
+        raise HTTPException(400, "Phone number is required.")
+    res = wa.request_pairing_code(phone)
+    if not res.get("ok"):
+        raise HTTPException(400, res.get("error", "Failed to generate pairing code"))
+    return res
+
+
+@app.post("/api/whatsapp/reset")
+def whatsapp_reset():
+    """Reset WhatsApp session credentials on the Baileys bridge."""
+    return wa.reset_bridge_session()
+
+
+@app.get("/api/whatsapp/report-pdf/{case_id}")
+def download_case_pdf(case_id: str):
+    """Download or preview the generated clinical PDF report for a case."""
+    try:
+        pdf_bytes = pdf_gen.generate_clinical_pdf(case_id)
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'inline; filename="NeuroScope_{case_id.upper()}_Report.pdf"'}
+        )
+    except Exception as exc:
+        raise HTTPException(500, f"Failed to generate clinical PDF: {exc}")
+
+
+@app.post("/api/whatsapp/send-report")
+async def send_whatsapp_report(request: Request):
+    """Send a clinical diagnostic PDF report to a patient's WhatsApp number."""
+    body = await request.json()
+    phone = str(body.get("phone", "")).strip()
+    case_id = str(body.get("case_id", "case_01_right_frontal_gbm")).strip()
+    caption = body.get("caption")
+
+    if not phone:
+        raise HTTPException(400, "Patient phone number is required.")
+
+    status = wa.get_bridge_status()
+    if not status.get("connected"):
+        raise HTTPException(503, "WhatsApp bridge is not connected. Please scan the QR code first.")
+
+    asyncio.create_task(wa.dispatch_report_deferred(phone, case_id, custom_caption=caption))
+    return {
+        "ok": True,
+        "message": f"Clinical report for {case_id.upper()} queued for WhatsApp delivery to {phone}",
+        "phone": phone,
+        "case_id": case_id,
+    }
+
+
+@app.post("/api/whatsapp/incoming")
+async def handle_whatsapp_webhook(request: Request):
+    """Webhook forwarded from the Baileys bridge for incoming patient messages."""
+    body = await request.json()
+    sender_phone = str(body.get("senderPhone", ""))
+    text = str(body.get("text", ""))
+    return await wa.handle_incoming_message(sender_phone, text)
+

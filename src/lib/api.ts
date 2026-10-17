@@ -215,3 +215,58 @@ export const fetchExpertLabels = (jobId: string) => fetchBytes(`/api/jobs/${jobI
 export const reportUrl = (jobId: string) => `${BASE}/api/jobs/${jobId}/report`
 
 export const predictionUrl = (jobId: string) => `${BASE}/api/jobs/${jobId}/prediction`
+
+export interface WhatsAppStatus {
+  connected: boolean
+  user?: { id?: string; name?: string } | null
+  hasQr?: boolean
+  qrDataUrl?: string | null
+  pairingCode?: string | null
+  pairingPhone?: string | null
+  error?: string
+}
+
+export async function getWhatsAppStatus(): Promise<WhatsAppStatus> {
+  try {
+    const res = await fetch(`${BASE}/api/whatsapp/status`)
+    if (!res.ok) return { connected: false, error: 'Status fetch failed' }
+    return await res.json()
+  } catch {
+    return { connected: false, error: 'Cannot connect to backend' }
+  }
+}
+
+export async function requestWhatsAppPairCode(phone: string): Promise<{ ok: boolean; code: string; phone: string }> {
+  const res = await fetch(`${BASE}/api/whatsapp/pair-code`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phone }),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    throw new Error(data.detail || data.error || 'Failed to request pairing code')
+  }
+  return data
+}
+
+export async function resetWhatsAppSession(): Promise<{ ok: boolean; message: string }> {
+  const res = await fetch(`${BASE}/api/whatsapp/reset`, { method: 'POST' })
+  return await res.json()
+}
+
+export async function sendWhatsAppReport(
+  phone: string,
+  caseId: string,
+  caption?: string
+): Promise<{ ok: boolean; message: string }> {
+  const res = await fetch(`${BASE}/api/whatsapp/send-report`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phone, case_id: caseId, caption }),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    throw new Error(data.detail || data.message || 'Failed to dispatch report via WhatsApp')
+  }
+  return data
+}
